@@ -1,0 +1,48 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+Deno.serve(async (req) => {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+
+    if (!user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    const { trip_id, destination } = await req.json();
+
+    try {
+        // First, verify the user has permission to edit this trip
+        const trips = await base44.entities.Trip.filter({ id: trip_id });
+        const trip = trips[0];
+
+        if (!trip) {
+            return new Response(JSON.stringify({ error: 'Trip not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        // Check if user is owner or editor
+        const isOwner = trip.created_by === user.email;
+        const isEditor = trip.shared_with?.some(su => su.user_email === user.email && su.role === 'editor');
+
+        if (!isOwner && !isEditor) {
+            return new Response(JSON.stringify({ error: 'Permission denied' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        // Use regular SDK so created_by is set automatically
+        const newDestination = await base44.entities.Destination.create({
+            ...destination,
+            trip_id
+        });
+
+        return new Response(JSON.stringify(newDestination), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+    } catch (error) {
+        console.error('Error adding destination:', error);
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+        });
+    }
+});

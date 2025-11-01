@@ -1,0 +1,80 @@
+{
+  "name": "Transportation",
+  "type": "object",
+  "properties": {
+    "trip_id": {
+      "type": "string",
+      "description": "Reference to parent trip"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "flight",
+        "train",
+        "bus",
+        "ferry",
+        "car"
+      ],
+      "description": "Transportation type"
+    },
+    "from_location": {
+      "type": "string",
+      "description": "Departure location code"
+    },
+    "from_location_display": {
+      "type": "string",
+      "description": "Full departure location name with code"
+    },
+    "to_location": {
+      "type": "string",
+      "description": "Arrival location code"
+    },
+    "to_location_display": {
+      "type": "string",
+      "description": "Full arrival location name with code"
+    },
+    "departure_datetime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Departure date and time"
+    },
+    "arrival_datetime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Arrival date and time"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Airline, train company, etc."
+    },
+    "booking_reference": {
+      "type": "string",
+      "description": "Booking/ticket reference number"
+    },
+    "price": {
+      "type": "number",
+      "description": "Ticket price"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "saved",
+        "booked",
+        "cancelled"
+      ],
+      "default": "saved",
+      "description": "Booking status"
+    },
+    "details": {
+      "type": "string",
+      "description": "Additional details (flight number, seat, etc.)"
+    }
+  },
+  "required": [
+    "trip_id",
+    "type",
+    "from_location",
+    "to_location",
+    "departure_datetime"
+  ]
+}

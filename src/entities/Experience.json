@@ -1,0 +1,85 @@
+{
+  "name": "Experience",
+  "type": "object",
+  "properties": {
+    "trip_id": {
+      "type": "string",
+      "description": "Reference to parent trip"
+    },
+    "destination_id": {
+      "type": "string",
+      "description": "Reference to destination"
+    },
+    "name": {
+      "type": "string",
+      "description": "Experience/activity name"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "city_tour",
+        "day_trip",
+        "food_wine",
+        "workshop",
+        "outdoor",
+        "cultural",
+        "adventure",
+        "entertainment",
+        "wellness"
+      ],
+      "description": "Experience category"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider (Airbnb, GetYourGuide, etc.)"
+    },
+    "location": {
+      "type": "string",
+      "description": "Experience location code"
+    },
+    "location_display": {
+      "type": "string",
+      "description": "Full experience location name"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Experience date"
+    },
+    "duration": {
+      "type": "string",
+      "description": "Duration (e.g., 3 hours, Full day)"
+    },
+    "price": {
+      "type": "number",
+      "description": "Price per person"
+    },
+    "booking_reference": {
+      "type": "string",
+      "description": "Booking reference number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "saved",
+        "booked",
+        "cancelled"
+      ],
+      "default": "saved",
+      "description": "Booking status"
+    },
+    "rating": {
+      "type": "number",
+      "description": "Experience rating"
+    },
+    "details": {
+      "type": "string",
+      "description": "Additional details"
+    }
+  },
+  "required": [
+    "trip_id",
+    "name",
+    "date"
+  ]
+}

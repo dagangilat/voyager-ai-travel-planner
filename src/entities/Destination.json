@@ -1,0 +1,61 @@
+{
+  "name": "Destination",
+  "type": "object",
+  "properties": {
+    "trip_id": {
+      "type": "string",
+      "description": "Reference to parent trip"
+    },
+    "location": {
+      "type": "string",
+      "description": "Destination location/airport code"
+    },
+    "location_name": {
+      "type": "string",
+      "description": "Full location name"
+    },
+    "arrival_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Arrival date at destination"
+    },
+    "nights": {
+      "type": "number",
+      "description": "Number of nights staying"
+    },
+    "purposes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "rest",
+          "explore",
+          "beach",
+          "sports",
+          "museums",
+          "food",
+          "nightlife",
+          "adventure",
+          "culture",
+          "business",
+          "shopping"
+        ]
+      },
+      "description": "Activities planned at this destination"
+    },
+    "order": {
+      "type": "number",
+      "description": "Order in trip itinerary"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Destination notes"
+    }
+  },
+  "required": [
+    "trip_id",
+    "location",
+    "arrival_date",
+    "nights"
+  ]
+}

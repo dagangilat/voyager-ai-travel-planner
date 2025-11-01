@@ -1,0 +1,679 @@
+
+import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar, MapPin, Plus, Trash2, ArrowRight, Sparkles, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { motion, AnimatePresence } from "framer-motion";
+import LocationSearchInput from "../components/common/LocationSearchInput";
+import { Calendar as CalendarIcon } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, addDays } from "date-fns";
+import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+
+export default function CreateTrip() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const [tripName, setTripName] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [originDisplay, setOriginDisplay] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
+  const [destinations, setDestinations] = useState([]);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [createdTripId, setCreatedTripId] = useState(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [showAILimitDialog, setShowAILimitDialog] = useState(false);
+
+  const { data: user } = useQuery({
+    queryKey: ['user'],
+    queryFn: async () => {
+      const userData = await base44.auth.me();
+      console.log('User data loaded:', userData);
+      
+      // Initialize credits if they don't exist
+      if (!userData.credits) {
+        console.log('Initializing user credits...');
+        await base44.auth.updateMe({
+          credits: {
+            ai_generations_remaining: 3,
+            pro_searches_remaining: 10,
+            last_reset_date: null
+          }
+        });
+        // Refetch user data
+        const updatedUserData = await base44.auth.me();
+        console.log('User credits initialized:', updatedUserData);
+        return updatedUserData;
+      }
+      return userData;
+    },
+    staleTime: Infinity,
+  });
+
+  const createTripMutation = useMutation({
+    mutationFn: async ({ trip, destinations }) => {
+      const response = await base44.functions.invoke('createTripWithDestinations', {
+        trip,
+        destinations
+      });
+      return response.data;
+    },
+    onSuccess: (newTrip) => {
+      queryClient.invalidateQueries({ queryKey: ['trips'] });
+      setCreatedTripId(newTrip.id);
+    },
+  });
+
+  const addDestination = () => {
+    const lastDest = destinations[destinations.length - 1];
+    let suggestedDate = departureDate;
+    
+    if (lastDest && lastDest.arrival_date && lastDest.nights) {
+      const lastArrival = new Date(lastDest.arrival_date);
+      suggestedDate = format(addDays(lastArrival, lastDest.nights), 'yyyy-MM-dd');
+    }
+
+    setDestinations([...destinations, {
+      location: '',
+      location_name: '',
+      arrival_date: suggestedDate,
+      nights: 3,
+      purposes: []
+    }]);
+  };
+
+  const removeDestination = (index) => {
+    setDestinations(destinations.filter((_, i) => i !== index));
+  };
+
+  const updateDestination = (index, field, value) => {
+    const updated = [...destinations];
+    updated[index][field] = value;
+    setDestinations(updated);
+  };
+
+  const calculateReturnDate = () => {
+    if (destinations.length === 0 || !destinations[destinations.length - 1].arrival_date) {
+      return null;
+    }
+    const lastDest = destinations[destinations.length - 1];
+    const lastArrival = new Date(lastDest.arrival_date);
+    return format(addDays(lastArrival, lastDest.nights || 0), 'yyyy-MM-dd');
+  };
+
+  const handleCreateTrip = async (withAI = false) => {
+    console.log('handleCreateTrip called, withAI:', withAI);
+    console.log('Current user credits:', user?.credits);
+    
+    if (!tripName || !origin || !departureDate || destinations.length === 0) {
+      console.log('Missing required fields');
+      return;
+    }
+
+    // Check AI credits first if using AI
+    if (withAI) {
+      const aiCredits = user?.credits?.ai_generations_remaining || 0;
+      console.log('AI credits available:', aiCredits);
+      
+      if (aiCredits === 0) {
+        setShowAILimitDialog(true);
+        return;
+      }
+    }
+
+    const returnDate = calculateReturnDate();
+
+    const tripData = {
+      name: tripName,
+      origin: originDisplay || origin,
+      departure_date: departureDate,
+      return_date: returnDate,
+      status: 'planning',
+      budget_level: 'fine',
+      tempo: 'active'
+    };
+
+    const destData = destinations.map((dest, idx) => ({
+      ...dest,
+      order: idx + 1
+    }));
+
+    try {
+      // Create the trip first
+      console.log('Creating trip...');
+      const newTrip = await createTripMutation.mutateAsync({ trip: tripData, destinations: destData });
+      console.log('Trip created:', newTrip);
+
+      if (withAI && newTrip && newTrip.id) {
+        setIsGeneratingAI(true);
+        
+        try {
+          const destinationsText = destData.map((d, i) =>
+            `${i + 1}. ${d.location_name || d.location} (${d.arrival_date}, ${d.nights} nights)`
+          ).join('\n');
+
+          const prompt = `Create a complete travel itinerary with 2-3 OPTIONS for each category:
+
+Trip: ${tripName}
+Origin: ${originDisplay || origin}
+Dates: ${departureDate} to ${returnDate}
+Budget Level: fine (Mid-range comfortable options)
+Tempo: active (Balanced pace)
+
+Destinations:
+${destinationsText}
+
+IMPORTANT: Generate 2-3 different OPTIONS for each category:
+
+TRANSPORTATION between each city pair:
+For each connection (origin to first destination, between destinations), provide 2-3 options with:
+- type (flight/train/bus/ferry)
+- from_location (airport/station code)
+- from_location_display (full city name with code)
+- to_location (airport/station code)
+- to_location_display (full city name with code)
+- departure_datetime (ISO format with realistic time)
+- arrival_datetime (ISO format)
+- provider (airline/company name)
+- price (in USD)
+
+LODGING at each destination:
+For each destination, provide 2-3 options with:
+- name (hotel/property name)
+- type (hotel/airbnb/hostel/resort)
+- location (city code)
+- location_display (full city name)
+- check_in_date (arrival date at destination)
+- check_out_date (departure date from destination)
+- price_per_night (in USD)
+- rating (7-10 scale)
+
+EXPERIENCES at each destination:
+For each destination, provide 2-3 activity options with:
+- name (activity name)
+- category (city_tour/day_trip/food_wine/outdoor/cultural/adventure/entertainment/wellness)
+- provider (tour company name)
+- location (city code)
+- location_display (full city name)
+- date (one of the nights they're staying there)
+- duration (e.g., "3 hours", "Full day", "Half day")
+- price (in USD)
+- rating (7-10 scale)
+
+Provide realistic, varied options at different price points. Use actual airline names, hotel chains, and activity providers.`;
+
+          console.log('Calling AI with prompt...');
+          const result = await base44.integrations.Core.InvokeLLM({
+            prompt,
+            add_context_from_internet: true,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                transportation: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      type: { type: "string" },
+                      from_location: { type: "string" },
+                      from_location_display: { type: "string" },
+                      to_location: { type: "string" },
+                      to_location_display: { type: "string" },
+                      departure_datetime: { type: "string" },
+                      arrival_datetime: { type: "string" },
+                      provider: { type: "string" },
+                      price: { type: "number" }
+                    },
+                    required: ["type", "from_location", "to_location", "departure_datetime"]
+                  }
+                },
+                lodging: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string" },
+                      type: { type: "string" },
+                      location: { type: "string" },
+                      location_display: { type: "string" },
+                      check_in_date: { type: "string" },
+                      check_out_date: { type: "string" },
+                      price_per_night: { type: "number" },
+                      rating: { type: "number" }
+                    },
+                    required: ["name", "location", "check_in_date", "check_out_date"]
+                  }
+                },
+                experiences: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string" },
+                      category: { type: "string" },
+                      provider: { type: "string" },
+                      location: { type: "string" },
+                      location_display: { type: "string" },
+                      date: { type: "string" },
+                      duration: { type: "string" },
+                      price: { type: "number" },
+                      rating: { type: "number" }
+                    },
+                    required: ["name", "category", "location", "date"]
+                  }
+                }
+              },
+              required: ["transportation", "lodging", "experiences"]
+            }
+          });
+
+          console.log('AI Response received:', result);
+
+          // Create all items
+          const transportationPromises = (result.transportation || []).map(t =>
+            base44.entities.Transportation.create({
+              ...t,
+              trip_id: newTrip.id,
+              status: 'saved'
+            })
+          );
+
+          const lodgingPromises = (result.lodging || []).map(l => {
+            let nights = 1;
+            if (l.check_in_date && l.check_out_date) {
+              const checkIn = new Date(l.check_in_date);
+              const checkOut = new Date(l.check_out_date);
+              const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+              nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            }
+
+            return base44.entities.Lodging.create({
+              ...l,
+              trip_id: newTrip.id,
+              total_price: l.price_per_night && nights > 0 ? l.price_per_night * nights : undefined,
+              status: 'saved'
+            });
+          });
+
+          const experiencesPromises = (result.experiences || []).map(e =>
+            base44.entities.Experience.create({
+              ...e,
+              trip_id: newTrip.id,
+              status: 'saved'
+            })
+          );
+
+          await Promise.all([
+            ...transportationPromises,
+            ...lodgingPromises,
+            ...experiencesPromises
+          ]);
+
+          console.log('All items created successfully');
+          
+          // Decrement credit
+          const currentCredits = user?.credits?.ai_generations_remaining || 1;
+          await base44.auth.updateMe({
+            credits: {
+              ...(user?.credits || {}),
+              ai_generations_remaining: currentCredits - 1
+            }
+          });
+          
+          queryClient.invalidateQueries({ queryKey: ['user'] });
+          console.log('AI generation complete!');
+        } catch (error) {
+          console.error('AI generation error:', error);
+          // Still show success dialog even if AI fails - trip was created
+        } finally {
+          setIsGeneratingAI(false);
+        }
+      }
+
+      // Show success dialog
+      setShowSuccessDialog(true);
+
+    } catch (error) {
+      console.error('Error creating trip:', error);
+    }
+  };
+
+  const getMinDateForDestination = (index) => {
+    if (index === 0) {
+      return departureDate || format(new Date(), 'yyyy-MM-dd');
+    }
+    const prevDest = destinations[index - 1];
+    if (prevDest && prevDest.arrival_date && prevDest.nights) {
+      const prevArrival = new Date(prevDest.arrival_date);
+      return format(addDays(prevArrival, prevDest.nights), 'yyyy-MM-dd');
+    }
+    return departureDate || format(new Date(), 'yyyy-MM-dd');
+  };
+
+  const canSubmit = tripName && origin && departureDate && destinations.length > 0 && 
+    destinations.every(d => d.location && d.arrival_date && d.nights);
+
+  const aiCredits = user?.credits?.ai_generations_remaining || 0;
+  
+  console.log('Render state:', {
+    canSubmit,
+    isPending: createTripMutation.isPending,
+    isGeneratingAI,
+    aiCredits,
+    buttonDisabled: !canSubmit || createTripMutation.isPending || isGeneratingAI || aiCredits === 0
+  });
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Plan Your Trip</h1>
+          <p className="text-gray-600">Create your itinerary step by step, then let AI fill in the details</p>
+          <Badge className="mt-2 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border-purple-200">
+            <Sparkles className="w-3 h-3 mr-1" />
+            {aiCredits} AI generation{aiCredits !== 1 ? 's' : ''} available this month
+          </Badge>
+        </motion.div>
+
+        <Card className="border-0 shadow-xl rounded-2xl mb-6">
+          <CardHeader className="border-b bg-gradient-to-r from-gray-50 to-blue-50 p-6">
+            <CardTitle className="text-2xl font-bold">Trip Details</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="tripName" className="text-sm font-semibold text-gray-700">Trip Name</Label>
+              <Input
+                id="tripName"
+                value={tripName}
+                onChange={(e) => setTripName(e.target.value)}
+                placeholder="e.g., European Adventure 2026"
+                className="border-gray-200 focus:border-blue-500"
+              />
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">
+                  <span className="font-bold">Starting at</span>
+                </Label>
+                <LocationSearchInput
+                  id="origin"
+                  value={origin}
+                  onChange={(code, displayName) => {
+                    setOrigin(code);
+                    setOriginDisplay(displayName);
+                  }}
+                  placeholder="Home city"
+                  includeAirportCodes={true}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">
+                  <span className="font-bold">On</span> (Departure Date)
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal border-gray-200",
+                        !departureDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {departureDate ? format(new Date(departureDate), 'PPP') : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <CalendarIcon
+                      mode="single"
+                      selected={departureDate ? new Date(departureDate) : undefined}
+                      onSelect={(date) => date && setDepartureDate(format(date, 'yyyy-MM-dd'))}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-xl rounded-2xl mb-6">
+          <CardHeader className="border-b bg-gradient-to-r from-gray-50 to-blue-50 p-6">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-2xl font-bold">Destinations</CardTitle>
+              <Button
+                onClick={addDestination}
+                disabled={!departureDate}
+                className="bg-gradient-to-r from-blue-600 to-blue-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Destination
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            {destinations.length === 0 ? (
+              <div className="text-center py-12">
+                <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No destinations yet. Add your first stop!</p>
+              </div>
+            ) : (
+              <AnimatePresence>
+                {destinations.map((dest, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="mb-6 last:mb-0"
+                  >
+                    <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6 border border-gray-200">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+                            {index + 1}
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-900">
+                            {index === 0 ? (
+                              <><span className="text-blue-600">Then</span> travel to</>
+                            ) : (
+                              <><span className="text-blue-600">Then</span> travel to</>
+                            )}
+                          </h3>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeDestination(index)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="space-y-4">
+                        <LocationSearchInput
+                          id={`dest-location-${index}`}
+                          value={dest.location}
+                          onChange={(code, displayName) => {
+                            updateDestination(index, 'location', code);
+                            updateDestination(index, 'location_name', displayName);
+                          }}
+                          placeholder="Destination city"
+                          includeAirportCodes={true}
+                        />
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-semibold text-gray-700">
+                              <span className="font-bold">On</span> (Arrival Date)
+                            </Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal border-gray-200",
+                                    !dest.arrival_date && "text-muted-foreground"
+                                  )}
+                                >
+                                  <Calendar className="mr-2 h-4 w-4" />
+                                  {dest.arrival_date ? format(new Date(dest.arrival_date), 'PPP') : <span>Pick a date</span>}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0">
+                                <CalendarIcon
+                                  mode="single"
+                                  selected={dest.arrival_date ? new Date(dest.arrival_date) : undefined}
+                                  onSelect={(date) => date && updateDestination(index, 'arrival_date', format(date, 'yyyy-MM-dd'))}
+                                  disabled={(date) => date < new Date(getMinDateForDestination(index))}
+                                  defaultMonth={dest.arrival_date ? new Date(dest.arrival_date) : new Date(getMinDateForDestination(index))}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-sm font-semibold text-gray-700">
+                              <span className="font-bold">Stay for</span> (Nights)
+                            </Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={dest.nights}
+                              onChange={(e) => updateDestination(index, 'nights', parseInt(e.target.value) || 1)}
+                              className="border-gray-200"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {index < destinations.length - 1 && (
+                      <div className="flex justify-center my-4">
+                        <ArrowRight className="w-6 h-6 text-blue-600" />
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-4 justify-end">
+          <Button
+            variant="outline"
+            onClick={() => navigate(createPageUrl("Dashboard"))}
+            className="px-8"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleCreateTrip(false)}
+            disabled={!canSubmit || createTripMutation.isPending || isGeneratingAI}
+            variant="outline"
+            className="px-8 border-blue-200 text-blue-700"
+          >
+            {createTripMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Create Trip'
+            )}
+          </Button>
+          <Button
+            onClick={() => handleCreateTrip(true)}
+            disabled={!canSubmit || createTripMutation.isPending || isGeneratingAI || aiCredits === 0}
+            className="px-8 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          >
+            {isGeneratingAI ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Create with AI ({aiCredits} left)
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">Trip Created!</DialogTitle>
+            <DialogDescription className="text-center text-base pt-2">
+              {isGeneratingAI 
+                ? "Your trip is being created with AI-generated options. This may take a moment..."
+                : "Your trip has been created successfully. Ready to explore your itinerary?"}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => navigate(createPageUrl(`TripDetails?id=${createdTripId}`))}
+              disabled={isGeneratingAI}
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-700"
+            >
+              {isGeneratingAI ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                'View Trip'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAILimitDialog} onOpenChange={setShowAILimitDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">No AI Generations Left</DialogTitle>
+            <DialogDescription className="text-center text-base pt-2">
+              You've used your free AI trip generation for this month. Your limit will reset next month, or you can manually plan your trip.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setShowAILimitDialog(false)}
+              className="w-full"
+            >
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

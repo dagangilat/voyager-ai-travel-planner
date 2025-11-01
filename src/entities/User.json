@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "properties": {
+    "pro_subscription": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "free",
+            "pro",
+            "trial"
+          ],
+          "default": "free",
+          "description": "Subscription status"
+        },
+        "trial_expires": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When trial expires"
+        },
+        "subscribed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When user subscribed to pro"
+        }
+      }
+    },
+    "credits": {
+      "type": "object",
+      "properties": {
+        "pro_searches_remaining": {
+          "type": "number",
+          "default": 10,
+          "description": "Number of free Pro searches remaining"
+        },
+        "ai_generations_remaining": {
+          "type": "number",
+          "default": 1,
+          "description": "Number of free AI trip generations remaining"
+        }
+      },
+      "default": {
+        "pro_searches_remaining": 10,
+        "ai_generations_remaining": 1
+      }
+    },
+    "discount_offered": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether 50% discount was offered"
+    }
+  },
+  "name": "User",
+  "required": [
+    "pro_subscription",
+    "credits"
+  ]
+}

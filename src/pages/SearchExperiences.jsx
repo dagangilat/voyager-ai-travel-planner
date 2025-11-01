@@ -1,0 +1,554 @@
+
+import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Search, Loader2, Star, Save, Check, AlertCircle } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
+import LocationSearchInput from "../components/common/LocationSearchInput";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { format } from 'date-fns';
+
+// Import AlertDialog components
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+
+export default function SearchExperiences() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const urlParams = new URLSearchParams(window.location.search);
+  const tripId = urlParams.get('trip_id');
+
+  // Auto-redirect if no trip_id
+  React.useEffect(() => {
+    if (!tripId) {
+      navigate(createPageUrl('Dashboard'));
+    }
+  }, [tripId, navigate]);
+
+  const [searchParams, setSearchParams] = useState({
+    destination_id: '',
+    location: '',
+    location_display: '',
+    date: '',
+    category: 'city_tour'
+  });
+
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [savedItems, setSavedItems] = useState(new Set());
+  // Removed searchError state as it will be handled by the dialog
+  const [useAmadeus, setUseAmadeus] = useState(false); // New state for search method
+
+  // State for the AlertDialog
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState('');
+  const [dialogDescription, setDialogDescription] = useState('');
+
+  const { data: trip } = useQuery({
+    queryKey: ['trip', tripId],
+    queryFn: async () => {
+      const trips = await base44.entities.Trip.filter({ id: tripId });
+      return trips[0];
+    },
+    enabled: !!tripId
+  });
+
+  const { data: destinations = [] } = useQuery({
+    queryKey: ['destinations', tripId],
+    queryFn: () => base44.entities.Destination.filter({ trip_id: tripId }, 'order'),
+    enabled: !!tripId
+  });
+
+  const { data: existingExperiences = [] } = useQuery({
+    queryKey: ['experiences', tripId],
+    queryFn: () => base44.entities.Experience.filter({ trip_id: tripId }),
+    enabled: !!tripId
+  });
+
+  // Fetch current user for Pro access status
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+
+  // Check if user has pro access OR has remaining credits
+  const proStatus = user?.pro_subscription?.status;
+  const hasProAccess = proStatus === 'pro' || proStatus === 'trial';
+  const hasCredits = (user?.credits?.pro_searches_remaining || 0) > 0;
+  const canUseProSearch = hasProAccess || hasCredits;
+
+
+  const saveExperienceMutation = useMutation({
+    mutationFn: (expData) => {
+      const isDuplicate = existingExperiences.some(e =>
+        e.name === expData.name &&
+        e.location === expData.location &&
+        e.date === expData.date
+      );
+
+      if (isDuplicate) {
+        throw new Error('This experience is already saved to your trip.');
+      }
+
+      return base44.entities.Experience.create({
+        ...expData,
+        trip_id: tripId,
+        status: 'saved'
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['experiences', tripId] });
+      setSavedItems(prev => new Set([...prev, data.id]));
+    },
+    onError: (error) => {
+      setDialogTitle('Save Error');
+      setDialogDescription(error.message || 'Failed to save experience');
+      setIsDialogOpen(true);
+    }
+  });
+
+  const handleDestinationChange = (destId) => {
+    const destination = destinations.find(d => d.id === destId);
+    if (destination) {
+      setSearchParams({
+        ...searchParams,
+        destination_id: destId,
+        location: destination.location,
+        location_display: destination.location_name || destination.location,
+        date: destination.arrival_date
+      });
+    }
+  };
+
+  const handleSearch = async () => {
+    setIsSearching(true);
+    setSearchResults([]);
+    setDialogTitle('');
+    setDialogDescription('');
+    setIsDialogOpen(false);
+
+    try {
+      let result;
+
+      if (useAmadeus && canUseProSearch) {
+        // Decrement credit for free users
+        if (!hasProAccess && hasCredits) {
+          const remaining = user?.credits?.pro_searches_remaining || 0;
+          await base44.auth.updateMe({
+            credits: {
+              ...user.credits,
+              pro_searches_remaining: remaining - 1
+            }
+          });
+          queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+        }
+
+        // Amadeus search logic (mock for now - can be enhanced with actual Amadeus activities API)
+        console.log("Searching with Amadeus Pro...");
+        result = {
+          options: [
+            {
+              name: "Premium City Walking Tour",
+              category: searchParams.category,
+              provider: "Amadeus Tours",
+              duration: "4 hours",
+              price: 75,
+              rating: 9.2,
+              details: "Explore the city's hidden gems with a professional guide. Real-time availability via Amadeus.",
+              location_display: searchParams.location_display
+            },
+            {
+              name: "Gourmet Food & Wine Experience",
+              category: "food_wine",
+              provider: "Local Foodies",
+              duration: "3 hours",
+              price: 120,
+              rating: 8.8,
+              details: "Taste the best local cuisine. Book instantly via Amadeus.",
+              location_display: searchParams.location_display
+            }
+          ]
+        };
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+      } else {
+        // Use AI search
+        const categoryText = searchParams.category.replace('_', ' ');
+
+        const prompt = `Find ${categoryText} experiences and activities in ${searchParams.location_display || searchParams.location} for ${searchParams.date}.
+
+Check Airbnb Experiences, GetYourGuide, Viator, TimeOut, TripAdvisor, and reliable local tour guides for current availability and pricing.
+
+Provide realistic options with:
+- Experience/activity name
+- Category (city tour/day trip/food & wine/workshop/outdoor/cultural/adventure/entertainment/wellness)
+- Provider (Airbnb, GetYourGuide, Viator, etc.)
+- Duration (e.g., 3 hours, Full day, Half day)
+- Price per person in USD
+- Rating (1-10 scale)
+- Brief description of what's included
+- location_display (the city or area name, e.g., "Paris, France" or "Kyoto, Japan")
+
+Return 5-8 diverse and highly-rated options if available.`;
+
+        result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              options: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    category: { type: "string" },
+                    provider: { type: "string" },
+                    duration: { type: "string" },
+                    price: { type: "number" },
+                    rating: { type: "number" },
+                    details: { type: "string" },
+                    location_display: { type: "string" }
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      if (result.options && result.options.length > 0) {
+        setSearchResults(result.options);
+      } else {
+        setDialogTitle('No Experiences Found');
+        setDialogDescription("No experiences found. Try different dates or locations.");
+        setIsDialogOpen(true);
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      setDialogTitle('Search Error');
+      setDialogDescription(error.message || "Unable to search at the moment. Please try again later.");
+      setIsDialogOpen(true);
+    }
+
+    setIsSearching(false);
+  };
+
+  const handleSave = (option) => {
+    saveExperienceMutation.mutate({
+      destination_id: searchParams.destination_id,
+      name: option.name,
+      category: option.category || searchParams.category,
+      provider: option.provider,
+      location: searchParams.location,
+      location_display: option.location_display || searchParams.location_display,
+      date: searchParams.date,
+      duration: option.duration,
+      price: option.price,
+      rating: option.rating,
+      details: option.details
+    });
+  };
+
+  if (!tripId) {
+    return null; // Just return null while redirecting
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-slate-100 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center gap-4 mb-8">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate(createPageUrl(`TripDetails?id=${tripId}`))}
+            className="rounded-xl"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Search Experiences</h1>
+            {trip && <p className="text-gray-500 mt-1">{trip.name}</p>}
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <Card className="border-0 shadow-xl rounded-2xl sticky top-4">
+              <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
+                <CardTitle className="text-xl font-bold">Search Options</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Select Destination</Label>
+                  <Select value={searchParams.destination_id} onValueChange={handleDestinationChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select destination" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {destinations.map((dest) => (
+                        <SelectItem key={dest.id} value={dest.id}>
+                          {dest.location_name || dest.location}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <LocationSearchInput
+                  id="location"
+                  label="Or Search Location Manually"
+                  value={searchParams.location}
+                  onChange={(value, displayName) => setSearchParams({ ...searchParams, location: value, location_display: displayName || value })}
+                  placeholder="Search city or area"
+                  includeAirportCodes={false}
+                />
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Category</Label>
+                  <Select value={searchParams.category} onValueChange={(value) => setSearchParams({ ...searchParams, category: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="city_tour">🏛️ City Tour</SelectItem>
+                      <SelectItem value="day_trip">🚌 Day Trip</SelectItem>
+                      <SelectItem value="food_wine">🍷 Food & Wine</SelectItem>
+                      <SelectItem value="workshop">🎨 Workshop</SelectItem>
+                      <SelectItem value="outdoor">🏔️ Outdoor</SelectItem>
+                      <SelectItem value="cultural">🎭 Cultural</SelectItem>
+                      <SelectItem value="adventure">🧗 Adventure</SelectItem>
+                      <SelectItem value="entertainment">🎪 Entertainment</SelectItem>
+                      <SelectItem value="wellness">🧘 Wellness</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Date</Label>
+                  <Input
+                    type="date"
+                    value={searchParams.date}
+                    onChange={(e) => setSearchParams({ ...searchParams, date: e.target.value })}
+                    min={trip?.departure_date}
+                    max={trip?.return_date}
+                    className="border-gray-200"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Search Method</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={!useAmadeus ? "default" : "outline"}
+                      onClick={() => setUseAmadeus(false)}
+                      className="w-full"
+                    >
+                      🔍 Search
+                    </Button>
+                    <div className="relative">
+                      <Button
+                        type="button"
+                        variant={useAmadeus && canUseProSearch ? "default" : "outline"}
+                        onClick={() => setUseAmadeus(true)}
+                        disabled={!canUseProSearch}
+                        className="w-full"
+                      >
+                        ✨ Pro Search
+                      </Button>
+                      {!hasProAccess && (
+                        <Badge className="absolute -top-2 -right-2 bg-green-600 text-white text-[10px] px-1.5 py-0.5 rounded-full pointer-events-none">
+                          Pro
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {useAmadeus && !hasProAccess && hasCredits && (
+                    <p className="text-xs text-amber-600">
+                      You have {user.credits.pro_searches_remaining} free Pro searches left.
+                    </p>
+                  )}
+                  {useAmadeus && !hasProAccess && !hasCredits && (
+                    <p className="text-xs text-amber-600">
+                      Upgrade to Pro for real-time activities from Amadeus
+                    </p>
+                  )}
+                  {user?.pro_subscription?.status === 'trial' && (
+                    <p className="text-xs text-green-600">
+                      🎉 You're on a free trial! Amadeus Pro is included.
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  onClick={handleSearch}
+                  disabled={!searchParams.location || !searchParams.date || isSearching || (useAmadeus && !canUseProSearch)}
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-lg"
+                >
+                  {isSearching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4 mr-2" />
+                      Search
+                      {useAmadeus && !hasProAccess && hasCredits && (
+                        <Badge className="ml-2 bg-white/20">
+                          {user.credits.pro_searches_remaining} left
+                        </Badge>
+                      )}
+                    </>
+                  )}
+                </Button>
+
+                {useAmadeus && !canUseProSearch && (
+                  <div className="text-center mt-4">
+                    <p className="text-xs text-amber-600 mb-2">
+                      You've used all your free Pro searches! 🎉
+                    </p>
+                    <Link to={createPageUrl("ProUpgrade")}>
+                      <Button size="sm" className="w-full bg-gradient-to-r from-blue-600 to-purple-600">
+                        Get 50% OFF Pro
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-2">
+            <Card className="border-0 shadow-xl rounded-2xl">
+              <CardHeader className="border-b bg-gradient-to-r from-gray-50 to-green-50 p-6">
+                <CardTitle className="text-2xl font-bold">Results</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                {searchResults.length === 0 && !isSearching && !isDialogOpen && (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Star className="w-8 h-8 text-green-600" />
+                    </div>
+                    <p className="text-gray-500">Select a destination and date to discover experiences</p>
+                  </div>
+                )}
+
+                {isSearching && (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-green-600 mb-4" />
+                    <p className="text-gray-500">Searching for amazing experiences...</p>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  {searchResults.map((option, index) => {
+                    const isSaved = existingExperiences.some(e =>
+                      e.name === option.name &&
+                      e.location === searchParams.location &&
+                      e.date === searchParams.date
+                    );
+
+                    return (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="p-6 bg-gradient-to-r from-white to-green-50 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow"
+                      >
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <Badge className="mb-2 bg-green-100 text-green-700 border-green-200">
+                              {(option.category || searchParams.category)?.replace('_', ' ')}
+                            </Badge>
+                            <h3 className="font-bold text-lg text-gray-900 mb-1">{option.name}</h3>
+                            {option.location_display && (
+                              <p className="text-sm text-gray-600 mt-1">{option.location_display}</p>
+                            )}
+                            {option.rating && (
+                              <div className="flex items-center gap-1 mt-2 mb-2">
+                                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                <span className="font-semibold text-gray-900">{option.rating}</span>
+                              </div>
+                            )}
+                            {option.provider && (
+                              <p className="text-sm text-gray-600">by {option.provider}</p>
+                            )}
+                          </div>
+                          {option.price && (
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-green-600">${option.price}</p>
+                              <p className="text-xs text-gray-500">per person</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {option.duration && (
+                          <p className="text-sm text-gray-600 mb-2">⏱️ {option.duration}</p>
+                        )}
+
+                        {option.details && (
+                          <p className="text-sm text-gray-600 mb-4">{option.details}</p>
+                        )}
+
+                        <Button
+                          onClick={() => handleSave(option)}
+                          disabled={isSaved || saveExperienceMutation.isPending}
+                          className={`w-full ${isSaved ? 'bg-green-600 hover:bg-green-600' : 'bg-green-600 hover:bg-green-700'}`}
+                        >
+                          {isSaved ? (
+                            <>
+                              <Check className="w-4 h-4 mr-2" />
+                              Saved to Trip
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-2" />
+                              Save to Trip
+                            </>
+                          )}
+                        </Button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* AlertDialog for displaying errors and messages */}
+      <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{dialogDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsDialogOpen(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

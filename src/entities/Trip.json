@@ -1,0 +1,85 @@
+{
+  "name": "Trip",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Trip name/title"
+    },
+    "origin": {
+      "type": "string",
+      "description": "Starting location/airport code"
+    },
+    "departure_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Trip departure date"
+    },
+    "return_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Trip return date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "confirmed",
+        "completed",
+        "cancelled"
+      ],
+      "default": "planning",
+      "description": "Trip status"
+    },
+    "total_budget": {
+      "type": "number",
+      "description": "Total trip budget"
+    },
+    "budget_level": {
+      "type": "string",
+      "enum": [
+        "basic",
+        "fine",
+        "luxury"
+      ],
+      "description": "Budget level preference"
+    },
+    "tempo": {
+      "type": "string",
+      "enum": [
+        "relaxed",
+        "active",
+        "extreme"
+      ],
+      "description": "Trip tempo/pace preference"
+    },
+    "shared_with": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user_email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "editor",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "description": "List of users the trip is shared with"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional trip notes"
+    }
+  },
+  "required": [
+    "name",
+    "origin",
+    "departure_date"
+  ]
+}

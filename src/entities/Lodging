@@ -1,0 +1,140 @@
+{
+  "name": "Lodging",
+  "type": "object",
+  "properties": {
+    "trip_id": {
+      "type": "string",
+      "description": "Reference to parent trip"
+    },
+    "destination_id": {
+      "type": "string",
+      "description": "Reference to destination"
+    },
+    "name": {
+      "type": "string",
+      "description": "Hotel/property name"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "hotel",
+        "airbnb",
+        "hostel",
+        "resort",
+        "apartment",
+        "villa"
+      ],
+      "description": "Lodging type"
+    },
+    "location": {
+      "type": "string",
+      "description": "Property location code"
+    },
+    "location_display": {
+      "type": "string",
+      "description": "Full property location name with code"
+    },
+    "check_in_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Check-in date"
+    },
+    "check_out_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Check-out date"
+    },
+    "price_per_night": {
+      "type": "number",
+      "description": "Price per night"
+    },
+    "total_price": {
+      "type": "number",
+      "description": "Total booking price"
+    },
+    "booking_reference": {
+      "type": "string",
+      "description": "Booking reference number"
+    },
+    "booking_url": {
+      "type": "string",
+      "description": "Direct link to the booking page"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "saved",
+        "booked",
+        "cancelled"
+      ],
+      "default": "saved",
+      "description": "Booking status"
+    },
+    "rating": {
+      "type": "number",
+      "description": "Property rating"
+    },
+    "amenities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Property amenities"
+    },
+    "details": {
+      "type": "string",
+      "description": "Additional details"
+    }
+  },
+  "required": [
+    "trip_id",
+    "name",
+    "check_in_date",
+    "check_out_date"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "trip_id.created_by": "{{user.email}}"
+        },
+        {
+          "trip_id.shared_with": {
+            "$elemMatch": {
+              "user_email": "{{user.email}}",
+              "role": "editor"
+            }
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "trip_id.created_by": "{{user.email}}"
+        },
+        {
+          "trip_id.shared_with.user_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "trip_id.created_by": "{{user.email}}"
+        },
+        {
+          "trip_id.shared_with": {
+            "$elemMatch": {
+              "user_email": "{{user.email}}",
+              "role": "editor"
+            }
+          }
+        }
+      ]
+    },
+    "delete": {
+      "trip_id.created_by": "{{user.email}}"
+    }
+  }
+}
