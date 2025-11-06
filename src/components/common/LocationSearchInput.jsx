@@ -57,7 +57,7 @@ export default function LocationSearchInput({
     setIsSearching(true);
 
     try {
-      const response = await base44.functions.invoke('searchGooglePlaces', {
+      const response = await firebaseClient.functions.invoke('searchGooglePlaces', {
         query,
         includeAirportCodes
       });

@@ -19,38 +19,29 @@ service cloud.firestore {
 
     // Trip rules
     match /trips/{tripId} {
-      allow read: if isSignedIn() && 
-        (resource.data.user == request.auth.uid || 
-         exists(/databases/$(database)/documents/collaborations/$(request.auth.uid)_$(tripId)));
+      allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && resource.data.user == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.user_id == request.auth.uid;
     }
 
-    // Itinerary rules
-    match /itineraries/{itineraryId} {
-      allow read: if isSignedIn() && 
-        get(/databases/$(database)/documents/trips/$(resource.data.trip)).data.user == request.auth.uid;
-      allow write: if isSignedIn() && 
-        get(/databases/$(database)/documents/trips/$(request.resource.data.trip)).data.user == request.auth.uid;
+    // Destination rules
+    match /destinations/{destinationId} {
+      allow read, write: if isSignedIn();
     }
 
-    // Activity rules
-    match /activities/{activityId} {
-      allow read: if isSignedIn() && 
-        get(/databases/$(database)/documents/trips/$(get(/databases/$(database)/documents/itineraries/$(resource.data.itinerary)).data.trip)).data.user == request.auth.uid;
-      allow write: if isSignedIn() && 
-        get(/databases/$(database)/documents/trips/$(get(/databases/$(database)/documents/itineraries/$(request.resource.data.itinerary)).data.trip)).data.user == request.auth.uid;
+    // Lodging rules
+    match /lodging/{lodgingId} {
+      allow read, write: if isSignedIn();
     }
 
-    // Collaboration rules
-    match /collaborations/{collaborationId} {
-      allow read: if isSignedIn() && 
-        (resource.data.user == request.auth.uid || 
-         get(/databases/$(database)/documents/trips/$(resource.data.trip)).data.user == request.auth.uid);
-      allow create: if isSignedIn() && 
-        get(/databases/$(database)/documents/trips/$(request.resource.data.trip)).data.user == request.auth.uid;
-      allow update, delete: if isSignedIn() && 
-        get(/databases/$(database)/documents/trips/$(resource.data.trip)).data.user == request.auth.uid;
+    // Transportation rules
+    match /transportation/{transportationId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Experience rules
+    match /experiences/{experienceId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

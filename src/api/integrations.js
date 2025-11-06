@@ -1,21 +1,18 @@
-import { base44 } from './base44Client';
+import { firebaseClient } from './firebaseClient';
 
+export const Core = firebaseClient.integrations.Core;
 
+export const InvokeLLM = firebaseClient.integrations.Core.InvokeLLM;
 
+export const SendEmail = firebaseClient.integrations.Core.SendEmail;
 
-export const Core = base44.integrations.Core;
+export const SendSMS = firebaseClient.integrations.Core.SendSMS;
 
-export const InvokeLLM = base44.integrations.Core.InvokeLLM;
+export const UploadFile = firebaseClient.integrations.Core.UploadFile;
 
-export const SendEmail = base44.integrations.Core.SendEmail;
+export const GenerateImage = firebaseClient.integrations.Core.GenerateImage;
 
-export const SendSMS = base44.integrations.Core.SendSMS;
-
-export const UploadFile = base44.integrations.Core.UploadFile;
-
-export const GenerateImage = base44.integrations.Core.GenerateImage;
-
-export const ExtractDataFromUploadedFile = base44.integrations.Core.ExtractDataFromUploadedFile;
+export const ExtractDataFromUploadedFile = firebaseClient.integrations.Core.ExtractDataFromUploadedFile;
 
 
 

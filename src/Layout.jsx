@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Plane, Calendar, Home, Menu, LogOut, User, Receipt } from "lucide-react";
-import { firebaseClient } from "@/api/firebaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -43,19 +43,7 @@ const navigationItems = [
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
-  const [user, setUser] = React.useState(null);
-
-  React.useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const userData = await base44.auth.me();
-        setUser(userData);
-      } catch (error) {
-        console.error('Error loading user:', error);
-      }
-    };
-    loadUser();
-  }, [location.pathname]);
+  const { user, logout } = useAuth();
 
   return (
     <SidebarProvider>
@@ -126,7 +114,7 @@ export default function Layout({ children, currentPageName }) {
                   </div>
                 </div>
                 <button
-                  onClick={() => base44.auth.logout()}
+                  onClick={logout}
                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
                 >
                   <LogOut className="w-4 h-4" />
