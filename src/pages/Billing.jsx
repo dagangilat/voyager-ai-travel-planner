@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { format } from "date-fns";
 export default function Billing() {
   const { data: user } = useQuery({
     queryKey: ['user'],
-    queryFn: () => base44.auth.me(),
+  queryFn: () => firebaseClient.auth.me(),
     staleTime: Infinity,
   });
 
@@ -19,7 +19,7 @@ export default function Billing() {
     queryKey: ['purchaseHistory', user?.email],
     queryFn: async () => {
       if (!user) return [];
-      const history = await base44.entities.PurchaseHistory.filter(
+  const history = await firebaseClient.entities.PurchaseHistory.filter(
         { user_email: user.email },
         '-purchase_date'
       );

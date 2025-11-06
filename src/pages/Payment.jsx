@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,7 +32,7 @@ export default function Payment() {
 
   const { data: user } = useQuery({
     queryKey: ['user'],
-    queryFn: () => base44.auth.me(),
+  queryFn: () => firebaseClient.auth.me(),
     staleTime: Infinity,
   });
 
@@ -50,7 +50,7 @@ export default function Payment() {
 
   const processPaymentMutation = useMutation({
     mutationFn: async (paymentData) => {
-      const response = await base44.functions.invoke('processPayment', paymentData);
+  const response = await firebaseClient.functions.invoke('processPayment', paymentData);
       return response.data;
     },
     onSuccess: () => {

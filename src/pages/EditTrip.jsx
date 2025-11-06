@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +43,7 @@ export default function EditTrip() {
   const { data: trip, isLoading: loadingTrip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-      const trips = await base44.entities.Trip.filter({ id: tripId });
+  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
       return trips[0];
     },
     enabled: !!tripId
@@ -52,7 +52,7 @@ export default function EditTrip() {
   const { data: tripDestinations, isLoading: loadingDestinations } = useQuery({
     queryKey: ['destinations', tripId],
     queryFn: async () => {
-      const dests = await base44.entities.Destination.filter({ trip_id: tripId });
+  const dests = await firebaseClient.entities.Destination.filter({ trip_id: tripId });
       return dests.sort((a, b) => a.order - b.order);
     },
     enabled: !!tripId
@@ -77,7 +77,7 @@ export default function EditTrip() {
 
   const updateTripMutation = useMutation({
     mutationFn: async (data) => {
-      await base44.entities.Trip.update(tripId, data);
+  await firebaseClient.entities.Trip.update(tripId, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
@@ -88,7 +88,7 @@ export default function EditTrip() {
 
   const createDestinationMutation = useMutation({
     mutationFn: async (destination) => {
-      const response = await base44.functions.invoke('addDestinationToTrip', {
+  const response = await firebaseClient.functions.invoke('addDestinationToTrip', {
         trip_id: tripId,
         destination
       });
@@ -103,7 +103,7 @@ export default function EditTrip() {
 
   const updateDestinationMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      await base44.entities.Destination.update(id, data);
+  await firebaseClient.entities.Destination.update(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['destinations', tripId] });
@@ -114,7 +114,7 @@ export default function EditTrip() {
 
   const deleteDestinationMutation = useMutation({
     mutationFn: async (destId) => {
-      await base44.entities.Destination.delete(destId);
+  await firebaseClient.entities.Destination.delete(destId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['destinations', tripId] });

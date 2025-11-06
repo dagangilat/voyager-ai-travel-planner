@@ -20,6 +20,14 @@ FROM base AS build
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
+# Accept build arguments for environment variables
+ARG VITE_BASE44_APP_ID
+ARG VITE_BASE44_BACKEND_URL
+
+# Set environment variables for Vite build
+ENV VITE_BASE44_APP_ID=${VITE_BASE44_APP_ID}
+ENV VITE_BASE44_BACKEND_URL=${VITE_BASE44_BACKEND_URL}
+
 # Install node modules
 COPY package-lock.json package.json ./
 RUN npm ci --include=dev

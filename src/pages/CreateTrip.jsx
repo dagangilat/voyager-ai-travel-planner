@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,13 +42,13 @@ export default function CreateTrip() {
   const { data: user } = useQuery({
     queryKey: ['user'],
     queryFn: async () => {
-      const userData = await base44.auth.me();
+  const userData = await firebaseClient.auth.me();
       console.log('User data loaded:', userData);
       
       // Initialize credits if they don't exist
       if (!userData.credits) {
         console.log('Initializing user credits...');
-        await base44.auth.updateMe({
+        await firebaseClient.auth.updateMe({
           credits: {
             ai_generations_remaining: 3,
             pro_searches_remaining: 10,
@@ -56,7 +56,7 @@ export default function CreateTrip() {
           }
         });
         // Refetch user data
-        const updatedUserData = await base44.auth.me();
+        const updatedUserData = await firebaseClient.auth.me();
         console.log('User credits initialized:', updatedUserData);
         return updatedUserData;
       }
@@ -67,7 +67,7 @@ export default function CreateTrip() {
 
   const createTripMutation = useMutation({
     mutationFn: async ({ trip, destinations }) => {
-      const response = await base44.functions.invoke('createTripWithDestinations', {
+      const response = await firebaseClient.functions.invoke('createTripWithDestinations', {
         trip,
         destinations
       });
@@ -218,7 +218,7 @@ For each destination, provide 2-3 activity options with:
 Provide realistic, varied options at different price points. Use actual airline names, hotel chains, and activity providers.`;
 
           console.log('Calling AI with prompt...');
-          const result = await base44.integrations.Core.InvokeLLM({
+          const result = await firebaseClient.integrations.Core.InvokeLLM({
             prompt,
             add_context_from_internet: true,
             response_json_schema: {
@@ -286,7 +286,7 @@ Provide realistic, varied options at different price points. Use actual airline 
 
           // Create all items
           const transportationPromises = (result.transportation || []).map(t =>
-            base44.entities.Transportation.create({
+            firebaseClient.entities.Transportation.create({
               ...t,
               trip_id: newTrip.id,
               status: 'saved'
@@ -302,7 +302,7 @@ Provide realistic, varied options at different price points. Use actual airline 
               nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             }
 
-            return base44.entities.Lodging.create({
+            return firebaseClient.entities.Lodging.create({
               ...l,
               trip_id: newTrip.id,
               total_price: l.price_per_night && nights > 0 ? l.price_per_night * nights : undefined,
@@ -311,7 +311,7 @@ Provide realistic, varied options at different price points. Use actual airline 
           });
 
           const experiencesPromises = (result.experiences || []).map(e =>
-            base44.entities.Experience.create({
+            firebaseClient.entities.Experience.create({
               ...e,
               trip_id: newTrip.id,
               status: 'saved'
@@ -328,7 +328,7 @@ Provide realistic, varied options at different price points. Use actual airline 
           
           // Decrement credit
           const currentCredits = user?.credits?.ai_generations_remaining || 1;
-          await base44.auth.updateMe({
+          await firebaseClient.auth.updateMe({
             credits: {
               ...(user?.credits || {}),
               ai_generations_remaining: currentCredits - 1
