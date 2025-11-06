@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,14 +83,14 @@ export default function TripDetails() {
 
   const { data: user, isLoading: loadingUser } = useQuery({
     queryKey: ['user'],
-    queryFn: () => base44.auth.me(),
+  queryFn: () => firebaseClient.auth.me(),
     staleTime: Infinity,
   });
 
   const { data: trip, isLoading: loadingTrip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-      const trips = await base44.entities.Trip.filter({ id: tripId });
+  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
       return trips[0];
     },
     enabled: !!tripId && !!user
@@ -101,14 +101,14 @@ export default function TripDetails() {
 
   const { data: destinations = [] } = useQuery({
     queryKey: ['destinations', tripId],
-    queryFn: () => base44.entities.Destination.filter({ trip_id: tripId }, 'order'),
+  queryFn: () => firebaseClient.entities.Destination.filter({ trip_id: tripId }, 'order'),
     enabled: !!trip
   });
 
   const { data: transportation = [] } = useQuery({
     queryKey: ['transportation', tripId],
     queryFn: async () => {
-      const data = await base44.entities.Transportation.filter({ trip_id: tripId });
+  const data = await firebaseClient.entities.Transportation.filter({ trip_id: tripId });
       // Sort by departure_datetime - earliest first
       return data.sort((a, b) => new Date(a.departure_datetime) - new Date(b.departure_datetime));
     },
@@ -118,7 +118,7 @@ export default function TripDetails() {
   const { data: lodging = [] } = useQuery({
     queryKey: ['lodging', tripId],
     queryFn: async () => {
-      const data = await base44.entities.Lodging.filter({ trip_id: tripId });
+  const data = await firebaseClient.entities.Lodging.filter({ trip_id: tripId });
       // Sort by check_in_date - earliest first
       return data.sort((a, b) => new Date(a.check_in_date) - new Date(b.check_in_date));
     },
@@ -128,7 +128,7 @@ export default function TripDetails() {
   const { data: experiences = [] } = useQuery({
     queryKey: ['experiences', tripId],
     queryFn: async () => {
-      const data = await base44.entities.Experience.filter({ trip_id: tripId });
+  const data = await firebaseClient.entities.Experience.filter({ trip_id: tripId });
       // Sort by date - earliest first
       return data.sort((a, b) => new Date(a.date) - new Date(b.date));
     },
@@ -136,7 +136,7 @@ export default function TripDetails() {
   });
 
   const updateTripMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Trip.update(id, data),
+  mutationFn: ({ id, data }) => firebaseClient.entities.Trip.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
       setShowShareDialog(false);
@@ -152,14 +152,14 @@ export default function TripDetails() {
   const deleteTripMutation = useMutation({
     mutationFn: async () => {
       const deletePromises = [
-        ...destinations.map(d => base44.entities.Destination.delete(d.id)),
-        ...transportation.map(t => base44.entities.Transportation.delete(t.id)),
-        ...lodging.map(l => base44.entities.Lodging.delete(l.id)),
-        ...experiences.map(e => base44.entities.Experience.delete(e.id))
+  ...destinations.map(d => firebaseClient.entities.Destination.delete(d.id)),
+  ...transportation.map(t => firebaseClient.entities.Transportation.delete(t.id)),
+  ...lodging.map(l => firebaseClient.entities.Lodging.delete(l.id)),
+  ...experiences.map(e => firebaseClient.entities.Experience.delete(e.id))
       ];
 
       await Promise.all(deletePromises);
-      await base44.entities.Trip.delete(tripId);
+  await firebaseClient.entities.Trip.delete(tripId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trips'] });
@@ -169,7 +169,7 @@ export default function TripDetails() {
 
   const deleteDestinationMutation = useMutation({
     mutationFn: async (destId) => {
-      await base44.entities.Destination.delete(destId);
+  await firebaseClient.entities.Destination.delete(destId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['destinations', tripId] });
@@ -184,7 +184,7 @@ export default function TripDetails() {
         ? Math.max(...destinations.map(d => d.order || 0))
         : 0;
 
-      return await base44.entities.Destination.create({
+  return await firebaseClient.entities.Destination.create({
         ...destinationData,
         trip_id: tripId,
         order: maxOrder + 1
@@ -199,7 +199,7 @@ export default function TripDetails() {
 
   const updateDestinationMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      return await base44.entities.Destination.update(id, data);
+  return await firebaseClient.entities.Destination.update(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['destinations', tripId] });
@@ -210,7 +210,7 @@ export default function TripDetails() {
 
   const deleteTransportationMutation = useMutation({
     mutationFn: async (transportId) => {
-      await base44.entities.Transportation.delete(transportId);
+  await firebaseClient.entities.Transportation.delete(transportId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transportation', tripId] });
@@ -221,7 +221,7 @@ export default function TripDetails() {
 
   const addTransportationMutation = useMutation({
     mutationFn: async (transportData) => {
-      return await base44.entities.Transportation.create({
+  return await firebaseClient.entities.Transportation.create({
         ...transportData,
         trip_id: tripId
       });
@@ -235,7 +235,7 @@ export default function TripDetails() {
 
   const updateTransportationMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      return await base44.entities.Transportation.update(id, data);
+  return await firebaseClient.entities.Transportation.update(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transportation', tripId] });
@@ -247,7 +247,7 @@ export default function TripDetails() {
   // Lodging mutations
   const deleteLodgingMutation = useMutation({
     mutationFn: async (lodgingId) => {
-      await base44.entities.Lodging.delete(lodgingId);
+  await firebaseClient.entities.Lodging.delete(lodgingId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lodging', tripId] });
@@ -287,7 +287,7 @@ export default function TripDetails() {
         throw new Error('This lodging is already saved to your trip.');
       }
 
-      return await base44.entities.Lodging.create({
+  return await firebaseClient.entities.Lodging.create({
         ...lodgingData,
         trip_id: tripId
       });
@@ -334,7 +334,7 @@ export default function TripDetails() {
         throw new Error('This lodging is already saved to your trip.');
       }
 
-      return await base44.entities.Lodging.update(id, data);
+  return await firebaseClient.entities.Lodging.update(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lodging', tripId] });
@@ -349,7 +349,7 @@ export default function TripDetails() {
 
   const deleteExperienceMutation = useMutation({
     mutationFn: async (expId) => {
-      await base44.entities.Experience.delete(expId);
+  await firebaseClient.entities.Experience.delete(expId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['experiences', tripId] });
@@ -371,7 +371,7 @@ export default function TripDetails() {
         throw new Error('This experience is already saved to your trip.');
       }
 
-      return await base44.entities.Experience.create({
+  return await firebaseClient.entities.Experience.create({
         ...expData,
         trip_id: tripId
       });
@@ -400,7 +400,7 @@ export default function TripDetails() {
         throw new Error('This experience is already saved to your trip.');
       }
 
-      return await base44.entities.Experience.update(id, data);
+  return await firebaseClient.entities.Experience.update(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['experiences', tripId] });
@@ -485,7 +485,7 @@ For EXPERIENCES at each destination, provide 2-3 options based on the destinatio
 
 Make realistic suggestions based on actual available services. Consider travel times and logistics. Provide variety in options (different price points, different providers, different experiences).`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+  const result = await firebaseClient.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: true,
         response_json_schema: {
@@ -553,7 +553,7 @@ Make realistic suggestions based on actual available services. Consider travel t
 
       // Create all items
       const transportationPromises = (result.transportation || []).map(t =>
-        base44.entities.Transportation.create({
+  firebaseClient.entities.Transportation.create({
           ...t,
           trip_id: tripId,
           status: t.status || 'saved'
@@ -571,7 +571,7 @@ Make realistic suggestions based on actual available services. Consider travel t
             if (nights === 0 && checkIn.getTime() === checkOut.getTime()) nights = 0; // If same day, 0 nights
         }
 
-        return base44.entities.Lodging.create({
+  return firebaseClient.entities.Lodging.create({
           ...l,
           trip_id: tripId,
           total_price: l.price_per_night && nights > 0 ? l.price_per_night * nights : undefined,
@@ -580,7 +580,7 @@ Make realistic suggestions based on actual available services. Consider travel t
       });
 
       const experiencesPromises = (result.experiences || []).map(e =>
-        base44.entities.Experience.create({
+  firebaseClient.entities.Experience.create({
           ...e,
           trip_id: tripId,
           status: e.status || 'saved'
@@ -767,7 +767,7 @@ Make realistic suggestions based on actual available services. Consider travel t
           await generateAITripMutation.mutateAsync();
           
           // Decrement AI credit
-          await base44.auth.updateMe({
+          await firebaseClient.auth.updateMe({
             credits: {
               ...(user.credits || {}),
               ai_generations_remaining: aiCredits - 1
@@ -792,7 +792,7 @@ Make realistic suggestions based on actual available services. Consider travel t
       await generateAITripMutation.mutateAsync();
       
       // Decrement AI credit
-      await base44.auth.updateMe({
+  await firebaseClient.auth.updateMe({
         credits: {
           ...(user.credits || {}),
           ai_generations_remaining: aiCredits - 1
@@ -976,7 +976,7 @@ Make realistic suggestions based on actual available services. Consider travel t
         };
       }
 
-      const response = await base44.functions.invoke('findBookingUrl', {
+  const response = await firebaseClient.functions.invoke('findBookingUrl', {
         category,
         type, // This 'type' refers to the specific item type (flight, hotel, city_tour)
         search_params

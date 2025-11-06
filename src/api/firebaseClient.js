@@ -7,7 +7,7 @@ import { functionsService } from '@/services/functions';
 import * as entities from '@/services/firestore';
 
 // Export a firebase object that mimics the Base44 SDK structure
-export const base44 = {
+export const firebaseClient = {
   auth: authService,
   functions: functionsService,
   entities: {
@@ -49,4 +49,3 @@ export const base44 = {
     }
   }
 };
-

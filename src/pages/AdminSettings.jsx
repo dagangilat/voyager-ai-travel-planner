@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ export default function AdminSettings() {
 
   const { data: user } = useQuery({
     queryKey: ['user'],
-    queryFn: () => base44.auth.me(),
+  queryFn: () => firebaseClient.auth.me(),
   });
 
   const [vendors, setVendors] = useState(
@@ -26,7 +26,7 @@ export default function AdminSettings() {
   );
 
   const updateVendorsMutation = useMutation({
-    mutationFn: (vendorData) => base44.auth.updateMe({ travel_vendors: vendorData }),
+  mutationFn: (vendorData) => firebaseClient.auth.updateMe({ travel_vendors: vendorData }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       alert('Vendor preferences saved!');

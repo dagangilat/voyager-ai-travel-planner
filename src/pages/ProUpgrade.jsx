@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,7 @@ export default function ProUpgrade() {
 
   const { data: user, isLoading } = useQuery({
     queryKey: ['user'],
-    queryFn: () => base44.auth.me(),
+  queryFn: () => firebaseClient.auth.me(),
     staleTime: Infinity,
   });
 
@@ -35,7 +35,7 @@ export default function ProUpgrade() {
     mutationFn: async () => {
       // For testing, just upgrade directly
       // In production, integrate with Stripe here
-      await base44.auth.updateMe({
+  await firebaseClient.auth.updateMe({
         pro_subscription: {
           status: 'pro',
           subscribed_at: new Date().toISOString()
@@ -51,7 +51,7 @@ export default function ProUpgrade() {
 
   const downgradeMutation = useMutation({
     mutationFn: async () => {
-      await base44.auth.updateMe({
+  await firebaseClient.auth.updateMe({
         pro_subscription: {
           status: 'free',
           subscribed_at: null

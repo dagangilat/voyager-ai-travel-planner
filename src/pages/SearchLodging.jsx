@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,7 +69,7 @@ export default function SearchLodging() {
 
   const { data: user } = useQuery({
     queryKey: ['user'],
-    queryFn: () => base44.auth.me(),
+  queryFn: () => firebaseClient.auth.me(),
     staleTime: Infinity,
   });
 
@@ -82,7 +82,7 @@ export default function SearchLodging() {
   const { data: trip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-      const trips = await base44.entities.Trip.filter({ id: tripId });
+  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
       return trips[0];
     },
     enabled: !!tripId
@@ -90,13 +90,13 @@ export default function SearchLodging() {
 
   const { data: destinations = [] } = useQuery({
     queryKey: ['destinations', tripId],
-    queryFn: () => base44.entities.Destination.filter({ trip_id: tripId }, 'order'),
+  queryFn: () => firebaseClient.entities.Destination.filter({ trip_id: tripId }, 'order'),
     enabled: !!tripId
   });
 
   const { data: existingLodging = [] } = useQuery({
     queryKey: ['lodging', tripId],
-    queryFn: () => base44.entities.Lodging.filter({ trip_id: tripId }),
+  queryFn: () => firebaseClient.entities.Lodging.filter({ trip_id: tripId }),
     enabled: !!tripId
   });
 
@@ -113,7 +113,7 @@ export default function SearchLodging() {
         throw new Error('This lodging is already saved to your trip.');
       }
 
-      return base44.entities.Lodging.create({
+  return firebaseClient.entities.Lodging.create({
         ...lodgingData,
         trip_id: tripId,
         status: 'saved'
@@ -155,7 +155,7 @@ export default function SearchLodging() {
         // Decrement credit for free users
         if (!hasProAccess && hasCredits) {
           const remaining = user?.credits?.pro_searches_remaining || 0;
-          await base44.auth.updateMe({
+          await firebaseClient.auth.updateMe({
             credits: {
               ...user.credits,
               pro_searches_remaining: remaining - 1
@@ -175,7 +175,7 @@ export default function SearchLodging() {
           return;
         }
 
-        const response = await base44.functions.invoke('searchAmadeusHotels', {
+  const response = await firebaseClient.functions.invoke('searchAmadeusHotels', {
           cityCode: cityCode,
           checkInDate: searchParams.check_in_date,
           checkOutDate: searchParams.check_out_date,
@@ -213,7 +213,7 @@ Provide realistic options with:
 
 Return 5-8 options with varied price points if available.`;
 
-        const result = await base44.integrations.Core.InvokeLLM({
+  const result = await firebaseClient.integrations.Core.InvokeLLM({
           prompt,
           add_context_from_internet: true,
           response_json_schema: {

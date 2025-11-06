@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, AlertCircle } from "lucide-react";
@@ -14,7 +14,7 @@ export default function Dashboard() {
 
   const { data: user, isLoading: loadingUser } = useQuery({
     queryKey: ['user'],
-    queryFn: () => base44.auth.me(),
+  queryFn: () => firebaseClient.auth.me(),
     staleTime: Infinity,
   });
 
@@ -22,7 +22,7 @@ export default function Dashboard() {
     queryKey: ['trips', user?.email],
     queryFn: async () => {
       // Query trips directly - Base44 will automatically filter to user's trips
-      const allTrips = await base44.entities.Trip.list('-departure_date');
+  const allTrips = await firebaseClient.entities.Trip.list('-departure_date');
       console.log('Fetched trips:', allTrips);
       return allTrips;
     },
@@ -32,7 +32,7 @@ export default function Dashboard() {
 
   const { data: destinations } = useQuery({
     queryKey: ['destinations', user?.email],
-    queryFn: () => base44.entities.Destination.list('order'),
+  queryFn: () => firebaseClient.entities.Destination.list('order'),
     initialData: [],
     enabled: !!user,
   });

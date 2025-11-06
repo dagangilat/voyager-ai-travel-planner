@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +63,7 @@ export default function SearchExperiences() {
   const { data: trip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-      const trips = await base44.entities.Trip.filter({ id: tripId });
+  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
       return trips[0];
     },
     enabled: !!tripId
@@ -71,20 +71,20 @@ export default function SearchExperiences() {
 
   const { data: destinations = [] } = useQuery({
     queryKey: ['destinations', tripId],
-    queryFn: () => base44.entities.Destination.filter({ trip_id: tripId }, 'order'),
+  queryFn: () => firebaseClient.entities.Destination.filter({ trip_id: tripId }, 'order'),
     enabled: !!tripId
   });
 
   const { data: existingExperiences = [] } = useQuery({
     queryKey: ['experiences', tripId],
-    queryFn: () => base44.entities.Experience.filter({ trip_id: tripId }),
+  queryFn: () => firebaseClient.entities.Experience.filter({ trip_id: tripId }),
     enabled: !!tripId
   });
 
   // Fetch current user for Pro access status
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
+  queryFn: () => firebaseClient.auth.me(),
   });
 
   // Check if user has pro access OR has remaining credits
@@ -106,7 +106,7 @@ export default function SearchExperiences() {
         throw new Error('This experience is already saved to your trip.');
       }
 
-      return base44.entities.Experience.create({
+  return firebaseClient.entities.Experience.create({
         ...expData,
         trip_id: tripId,
         status: 'saved'
@@ -150,7 +150,7 @@ export default function SearchExperiences() {
         // Decrement credit for free users
         if (!hasProAccess && hasCredits) {
           const remaining = user?.credits?.pro_searches_remaining || 0;
-          await base44.auth.updateMe({
+          await firebaseClient.auth.updateMe({
             credits: {
               ...user.credits,
               pro_searches_remaining: remaining - 1
@@ -207,7 +207,7 @@ Provide realistic options with:
 
 Return 5-8 diverse and highly-rated options if available.`;
 
-        result = await base44.integrations.Core.InvokeLLM({
+  result = await firebaseClient.integrations.Core.InvokeLLM({
           prompt,
           add_context_from_internet: true,
           response_json_schema: {

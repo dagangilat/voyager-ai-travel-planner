@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react"; // Added useEffect
-import { base44 } from "@/api/base44Client";
+import { firebaseClient } from "@/api/firebaseClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +68,7 @@ export default function SearchTransportation() {
   // Fetch current user for Pro access check
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me(),
+  queryFn: () => firebaseClient.auth.me(),
     staleTime: 5 * 60 * 1000 // 5 minutes
   });
 
@@ -81,7 +81,7 @@ export default function SearchTransportation() {
   const { data: trip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-      const trips = await base44.entities.Trip.filter({ id: tripId });
+  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
       return trips[0];
     },
     enabled: !!tripId
@@ -89,13 +89,13 @@ export default function SearchTransportation() {
 
   const { data: destinations = [] } = useQuery({
     queryKey: ['destinations', tripId],
-    queryFn: () => base44.entities.Destination.filter({ trip_id: tripId }, 'order'),
+  queryFn: () => firebaseClient.entities.Destination.filter({ trip_id: tripId }, 'order'),
     enabled: !!tripId
   });
 
   const { data: existingTransportation = [] } = useQuery({
     queryKey: ['transportation', tripId],
-    queryFn: () => base44.entities.Transportation.filter({ trip_id: tripId }),
+  queryFn: () => firebaseClient.entities.Transportation.filter({ trip_id: tripId }),
     enabled: !!tripId
   });
 
@@ -118,7 +118,7 @@ export default function SearchTransportation() {
         throw new Error('This transportation option is already saved to your trip.');
       }
 
-      return base44.entities.Transportation.create({
+  return firebaseClient.entities.Transportation.create({
         ...transportData,
         trip_id: tripId,
         status: 'saved'
@@ -153,7 +153,7 @@ export default function SearchTransportation() {
   const decrementSearchCredit = async () => {
     const credits = user?.credits;
     if (credits && credits.pro_searches_remaining > 0) {
-      await base44.auth.updateMe({
+  await firebaseClient.auth.updateMe({
         credits: {
           ...credits,
           pro_searches_remaining: credits.pro_searches_remaining - 1
@@ -183,7 +183,7 @@ export default function SearchTransportation() {
         }
 
         // Use Amadeus API
-        const response = await base44.functions.invoke('searchAmadeusFlights', {
+  const response = await firebaseClient.functions.invoke('searchAmadeusFlights', {
           origin: searchParams.from_location, // Assuming this will be an IATA code for Amadeus
           destination: searchParams.to_location, // Assuming this will be an IATA code for Amadeus
           departureDate: searchParams.departure_date,
@@ -286,7 +286,7 @@ Provide realistic car rental options with:
 Return 5-8 car rental options if available.`;
         }
 
-        const result = await base44.integrations.Core.InvokeLLM({
+  const result = await firebaseClient.integrations.Core.InvokeLLM({
           prompt,
           add_context_from_internet: true,
           response_json_schema: {
