@@ -17,30 +17,53 @@ const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
 setupIframeMessaging();
 
-const LayoutWrapper = ({ children, currentPageName }) => Layout ?
-  <Layout currentPageName={currentPageName}>{children}</Layout>
-  : <>{children}</>;
+const LayoutWrapper = ({ children, currentPageName }) => {
+  const { isAuthenticated } = useAuth();
+  const isLoginPage = currentPageName === 'Login';
+  
+  // Don't wrap Login page with Layout
+  if (isLoginPage || !isAuthenticated) {
+    return <>{children}</>;
+  }
+  
+  return Layout ? 
+    <Layout currentPageName={currentPageName}>{children}</Layout>
+    : <>{children}</>;
+};
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated, navigateToLogin } = useAuth();
+  const { isLoadingAuth, authError, isAuthenticated } = useAuth();
+  const location = window.location.pathname;
+  const isLoginPage = location === '/Login' || location === '/';
 
-  // Show loading spinner while checking app public settings or auth
-  if (isLoadingPublicSettings || isLoadingAuth) {
+  // Show loading spinner while checking auth
+  if (isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+      <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
+  }
+
+  // If not authenticated and not on login page, redirect to login
+  if (!isAuthenticated && !isLoginPage) {
+    window.location.href = '/Login';
+    return null;
+  }
+
+  // If authenticated and on login page, redirect to dashboard
+  if (isAuthenticated && isLoginPage) {
+    window.location.href = '/Dashboard';
+    return null;
   }
 
   // Handle authentication errors
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
     }
   }
 

@@ -1,17 +1,50 @@
-import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebase';
 
 /**
  * Firebase Functions Service
- * Wrapper for calling Firebase Cloud Functions
+ * Wrapper for calling Firebase Cloud Functions (HTTP endpoints)
  */
+
+// Cloud Functions are deployed as HTTP endpoints, not callable functions
+const REGION = 'us-central1';
+const PROJECT_ID = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'voyager-ai-travel-planner';
+const FUNCTIONS_BASE_URL = `https://${REGION}-${PROJECT_ID}.cloudfunctions.net`;
 
 // Generic function invoker
 export const invokeFunction = async (functionName, data) => {
   try {
-    const callable = httpsCallable(functions, functionName);
-    const result = await callable(data);
-    return result.data;
+    const url = `${FUNCTIONS_BASE_URL}/${functionName}`;
+    
+    // Determine HTTP method and construct request
+    let requestInit = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+    
+    // Some functions use GET with query params
+    let finalUrl = url;
+    if (functionName === 'searchGooglePlaces' && data) {
+      // GET request with query params
+      requestInit.method = 'GET';
+      const params = new URLSearchParams();
+      if (data.query) params.append('query', data.query);
+      if (data.type) params.append('type', data.type);
+      finalUrl = `${url}?${params.toString()}`;
+    } else if (data) {
+      // POST request with JSON body
+      requestInit.body = JSON.stringify(data);
+    }
+    
+    const response = await fetch(finalUrl, requestInit);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Function call failed: ${response.statusText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error(`Error calling function ${functionName}:`, error);
     throw error;

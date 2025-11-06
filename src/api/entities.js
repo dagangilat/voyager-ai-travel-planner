@@ -1,9 +1,9 @@
-import { base44 } from './base44Client';
+import { firebaseClient } from './firebaseClient';
 
 
-export const Query = base44.entities.Query;
+export const Query = firebaseClient.entities.Query;
 
 
 
 // auth sdk:
-export const User = base44.auth;
+export const User = firebaseClient.auth;
