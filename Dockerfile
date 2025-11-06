@@ -40,6 +40,21 @@ FROM nginx
 # Copy built application
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Start the server by default, this can be overwritten at runtime
-EXPOSE 80
-CMD [ "/usr/sbin/nginx", "-g", "daemon off;" ]
+# Copy custom nginx config for Cloud Run
+COPY <<EOF /etc/nginx/conf.d/default.conf
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+}
+EOF
+
+# Cloud Run requires port 8080
+EXPOSE 8080
+
+CMD ["nginx", "-g", "daemon off;"]
