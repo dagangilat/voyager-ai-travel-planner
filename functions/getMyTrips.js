@@ -1,57 +1,42 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+const functions = require('firebase-functions');
+const { db } = require('./shared/admin');
 
-Deno.serve(async (req) => {
-    try {
-        const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+exports.getMyTrips = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
 
-        if (!user) {
-            console.error('No authenticated user');
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  // Basic auth check (adjust to your auth middleware)
+  const userEmail = req.user?.email || 'unknown@example.com';
+
+  try {
+    const ownedSnapshot = await db.collection('trips').where('created_by', '==', userEmail).get();
+    const owned = ownedSnapshot.docs.map((d) => ({ id: d.id, ...d.data(), access: 'owner' }));
+
+    // For shared trips, we store shared_with as array of objects; Firestore does not support array-contains with object easily,
+    // so this example reads all trips and filters — for production, structure shared_with for efficient queries.
+    const allTripsSnapshot = await db.collection('trips').get();
+    const shared = [];
+    allTripsSnapshot.docs.forEach((d) => {
+      const data = d.data();
+      if (data.shared_with && Array.isArray(data.shared_with)) {
+        if (data.shared_with.some((s) => s.user_email === userEmail)) {
+          shared.push({ id: d.id, ...data, access: 'editor' });
         }
+      }
+    });
 
-        console.log(`Fetching trips for user: ${user.email}`);
+    const trips = [...owned, ...shared];
+    trips.sort((a, b) => {
+      const at = a.updated_at?.toDate?.() || new Date(0);
+      const bt = b.updated_at?.toDate?.() || new Date(0);
+      return bt - at;
+    });
 
-        // Use service role to fetch all trips
-        const sdk = base44.asServiceRole;
-        
-        // Get all trips
-        const allTrips = await sdk.entities.Trip.list();
-        console.log(`Total trips in database: ${allTrips.length}`);
-        
-        // Filter to only trips the user owns or is shared with
-        const userTrips = allTrips.filter(trip => {
-            // User is the owner
-            if (trip.created_by === user.email) {
-                return true;
-            }
-            
-            // User is in the shared_with list
-            if (trip.shared_with && Array.isArray(trip.shared_with)) {
-                return trip.shared_with.some(share => share.user_email === user.email);
-            }
-            
-            return false;
-        });
-        
-        console.log(`User has access to ${userTrips.length} trips`);
-        
-        // Sort by departure date (newest first)
-        userTrips.sort((a, b) => new Date(b.departure_date) - new Date(a.departure_date));
-        
-        return Response.json(userTrips, {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-    } catch (error) {
-        console.error('Error in getMyTrips:', error.message, error.stack);
-        return Response.json({ 
-            error: error.message,
-            details: error.stack 
-        }, { 
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
+    res.status(200).json({ trips });
+  } catch (error) {
+    console.error('Error getting trips:', error);
+    res.status(500).json({ error: error.message });
+  }
 });

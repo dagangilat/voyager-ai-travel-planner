@@ -1,0 +1,301 @@
+{
+  "export_date": "2025-11-01T20:10:00Z",
+  "app_name": "Voyager Travel Planner",
+  "entities": {
+    "Trip": [
+      {
+        "id": "69065a565507c850119d162e",
+        "created_date": "2025-11-01T19:07:02.046Z",
+        "updated_date": "2025-11-01T19:07:02.046Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "name": "European Adventure 2025",
+          "origin": "Tel Aviv, Israel [TLV], Israel [TLV]",
+          "departure_date": "2025-11-20",
+          "return_date": "2025-11-29",
+          "status": "planning",
+          "budget_level": "fine",
+          "tempo": "active",
+          "shared_with": []
+        }
+      },
+      {
+        "id": "69063dac65114158de5914d2",
+        "created_date": "2025-11-01T17:04:44.666Z",
+        "updated_date": "2025-11-01T17:36:40.956Z",
+        "created_by": "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53@no-reply.base44.com",
+        "data": {
+          "name": "European Adventure 2025",
+          "origin": "Tel Aviv, Israel [TLV], Israel [TLV]",
+          "departure_date": "2025-12-02",
+          "return_date": "2025-12-12",
+          "status": "planning",
+          "budget_level": "fine",
+          "tempo": "active",
+          "shared_with": [],
+          "notes": ""
+        }
+      }
+    ],
+    "Destination": [
+      {
+        "id": "69065a560571a8515c14158f",
+        "created_date": "2025-11-01T19:07:02.186Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "trip_id": "69065a565507c850119d162e",
+          "location": "ROM",
+          "location_name": "Rome, Italy [ROM], Italy [ROM]",
+          "arrival_date": "2025-11-20",
+          "nights": 3,
+          "purposes": [],
+          "order": 1
+        }
+      },
+      {
+        "id": "69065a560571a8515c141590",
+        "created_date": "2025-11-01T19:07:02.186Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "trip_id": "69065a565507c850119d162e",
+          "location": "AMS",
+          "location_name": "Amsterdam, Netherlands [AMS], Netherlands [AMS]",
+          "arrival_date": "2025-11-23",
+          "nights": 3,
+          "purposes": [],
+          "order": 2
+        }
+      },
+      {
+        "id": "69065a560571a8515c141591",
+        "created_date": "2025-11-01T19:07:02.186Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "trip_id": "69065a565507c850119d162e",
+          "location": "BER",
+          "location_name": "Berlin, Germany [BER], Germany [BER]",
+          "arrival_date": "2025-11-26",
+          "nights": 3,
+          "purposes": [],
+          "order": 3
+        }
+      },
+      {
+        "id": "69063dac3c91a6ed81051eb4",
+        "created_date": "2025-11-01T17:04:44.919Z",
+        "created_by": "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53@no-reply.base44.com",
+        "data": {
+          "trip_id": "69063dac65114158de5914d2",
+          "location": "HEL",
+          "location_name": "Helsinki, Finland [HEL], Finland [HEL]",
+          "arrival_date": "2025-12-02",
+          "nights": 3,
+          "purposes": [],
+          "order": 1
+        }
+      },
+      {
+        "id": "69063dac3c91a6ed81051eb5",
+        "created_date": "2025-11-01T17:04:44.919Z",
+        "created_by": "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53@no-reply.base44.com",
+        "data": {
+          "trip_id": "69063dac65114158de5914d2",
+          "location": "STO",
+          "location_name": "Stockholm, Sweden [STO], Sweden [STO]",
+          "arrival_date": "2025-12-05",
+          "nights": 3,
+          "purposes": [],
+          "order": 2
+        }
+      },
+      {
+        "id": "69063dac3c91a6ed81051eb6",
+        "created_date": "2025-11-01T17:04:44.919Z",
+        "created_by": "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53@no-reply.base44.com",
+        "data": {
+          "trip_id": "69063dac65114158de5914d2",
+          "location": "AMS",
+          "location_name": "Amsterdam, Netherlands [AMS], Netherlands [AMS]",
+          "arrival_date": "2025-12-08",
+          "nights": 3,
+          "purposes": [],
+          "order": 3
+        }
+      }
+    ],
+    "Transportation": [
+      {
+        "id": "69065b31d976f7c777fc6e85",
+        "created_date": "2025-11-01T19:10:41.254Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "trip_id": "69063dac65114158de5914d2",
+          "type": "flight",
+          "from_location": "TLV",
+          "to_location": "HEL",
+          "to_location_display": "Helsinki, Finland [HEL], Finland [HEL]",
+          "departure_datetime": "2025-12-02T03:20:00.000Z",
+          "arrival_datetime": "2025-12-02T13:50:00.000Z",
+          "provider": "LO",
+          "price": 324.29,
+          "status": "saved",
+          "details": "Flight 152 • 2 stop(s)"
+        }
+      },
+      {
+        "id": "69065b2f9abd4444efb22cfe",
+        "created_date": "2025-11-01T19:10:39.134Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "trip_id": "69063dac65114158de5914d2",
+          "type": "flight",
+          "from_location": "TLV",
+          "to_location": "HEL",
+          "to_location_display": "Helsinki, Finland [HEL], Finland [HEL]",
+          "departure_datetime": "2025-12-02T03:20:00.000Z",
+          "arrival_datetime": "2025-12-02T11:05:00.000Z",
+          "provider": "A3",
+          "price": 162.33,
+          "status": "saved",
+          "details": "Flight 929 • 2 stop(s)"
+        }
+      }
+    ],
+    "Lodging": [
+      {
+        "id": "69065a66a38ed3dec2c39f29",
+        "created_date": "2025-11-01T19:07:18.812Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "trip_id": "69065a565507c850119d162e",
+          "name": "The Ritz-Carlton, Berlin",
+          "type": "hotel",
+          "location": "BER",
+          "location_display": "Berlin, Germany",
+          "check_in_date": "2025-11-26",
+          "check_out_date": "2025-11-29",
+          "price_per_night": 250,
+          "total_price": 750,
+          "status": "saved",
+          "rating": 9
+        }
+      },
+      {
+        "id": "690645769a1382b1213a5293",
+        "created_date": "2025-11-01T17:37:58.189Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "trip_id": "69063dac65114158de5914d2",
+          "destination_id": "69063dac3c91a6ed81051eb4",
+          "name": "Hotel Kämp",
+          "type": "hotel",
+          "location": "Pohjoisesplanadi 29, 00100 Helsinki, Finland",
+          "location_display": "Pohjoisesplanadi 29, 00100 Helsinki, Finland",
+          "check_in_date": "2025-12-02",
+          "check_out_date": "2025-12-05",
+          "price_per_night": 300,
+          "total_price": 900,
+          "status": "saved",
+          "rating": 9.5,
+          "amenities": ["WiFi", "Parking", "Breakfast", "Spa", "Fitness Center"],
+          "details": "A luxurious 5-star hotel located in the heart of Helsinki, offering elegant rooms, a renowned spa, and gourmet dining options."
+        }
+      }
+    ],
+    "Experience": [
+      {
+        "id": "69065a6616b260c873fbe59e",
+        "created_date": "2025-11-01T19:07:18.150Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "trip_id": "69065a565507c850119d162e",
+          "name": "Potsdam Day Trip",
+          "category": "day_trip",
+          "provider": "Berlin Tours",
+          "location": "BER",
+          "location_display": "Berlin, Germany",
+          "date": "2025-11-28",
+          "duration": "Full day",
+          "price": 100,
+          "status": "saved",
+          "rating": 9
+        }
+      },
+      {
+        "id": "690645ae4a92aba2e87ed082",
+        "created_date": "2025-11-01T17:38:54.528Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "trip_id": "69063dac65114158de5914d2",
+          "destination_id": "69063dac3c91a6ed81051eb4",
+          "name": "Helsinki Highlights Sightseeing Guided Tour, Small Group",
+          "category": "City Tour",
+          "provider": "Viator",
+          "location": "HEL",
+          "location_display": "Helsinki, Finland",
+          "date": "2025-12-03",
+          "duration": "3.5 hours",
+          "price": 84,
+          "status": "saved",
+          "rating": 4.5,
+          "details": "A comprehensive half-day tour in a luxury van, visiting top attractions like Helsinki Cathedral and the Rock Church, with insightful commentary on the city's history and culture."
+        }
+      }
+    ],
+    "PurchaseHistory": [
+      {
+        "id": "6906673f0571a8515c148825",
+        "created_date": "2025-11-01T20:02:07.169Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "user_email": "feedmyinfo@gmail.com",
+          "item_type": "ai_credits",
+          "amount": 10,
+          "price": 9.99,
+          "payment_method": "apple_pay",
+          "status": "completed",
+          "transaction_id": "APPLE_PAY_1762027326365",
+          "purchase_date": "2025-11-01T20:02:07.039Z"
+        }
+      },
+      {
+        "id": "690665753b1904bc3c5a91e6",
+        "created_date": "2025-11-01T19:54:29.600Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "user_email": "feedmyinfo@gmail.com",
+          "item_type": "ai_credits",
+          "amount": 10,
+          "price": 9.99,
+          "payment_method": "apple_pay",
+          "status": "completed",
+          "transaction_id": "APPLE_PAY_1762026868480",
+          "purchase_date": "2025-11-01T19:54:29.481Z"
+        }
+      },
+      {
+        "id": "6906639d91a20787aeb5f281",
+        "created_date": "2025-11-01T19:46:37.165Z",
+        "created_by": "feedmyinfo@gmail.com",
+        "data": {
+          "user_email": "feedmyinfo@gmail.com",
+          "item_type": "ai_credits",
+          "amount": 10,
+          "price": 9.99,
+          "payment_method": "google_pay",
+          "status": "completed",
+          "transaction_id": "GOOGLE_PAY_1762026396441",
+          "purchase_date": "2025-11-01T19:46:37.044Z"
+        }
+      }
+    ]
+  },
+  "summary": {
+    "total_trips": 2,
+    "total_destinations": 6,
+    "total_transportation": 7,
+    "total_lodging": 5,
+    "total_experiences": 5,
+    "total_purchases": 7
+  }
+}

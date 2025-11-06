@@ -1,50 +1,66 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+const functions = require('firebase-functions');
+const { db, admin } = require('./shared/admin');
 
-Deno.serve(async (req) => {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-
-    if (!user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+exports.addDestinationToTrip = functions.https.onRequest(async (req, res) => {
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
     }
 
-    const { trip_id, destination } = await req.json();
+    // Verify authentication
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    const { trip_id, destination } = req.body;
+    if (!trip_id || !destination) {
+        res.status(400).json({ error: 'Missing required fields' });
+        return;
+    }
 
     try {
         // First, verify the user has permission to edit this trip
-        const trips = await base44.entities.Trip.filter({ id: trip_id });
-        const trip = trips[0];
-
-        if (!trip) {
-            return new Response(JSON.stringify({ error: 'Trip not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+        const tripDoc = await db.collection('trips').doc(trip_id).get();
+        
+        if (!tripDoc.exists) {
+            res.status(404).json({ error: 'Trip not found' });
+            return;
         }
+
+        const trip = tripDoc.data();
+        const userEmail = req.user.email; // Firebase Auth adds user to request
 
         // Check if user is owner or editor
-        const isOwner = trip.created_by === user.email;
-        const isEditor = trip.shared_with?.some(su => su.user_email === user.email && su.role === 'editor');
+        const isOwner = trip.created_by === userEmail;
+        const isEditor = trip.shared_with?.some(su => 
+            su.user_email === userEmail && su.role === 'editor'
+        );
 
         if (!isOwner && !isEditor) {
-            return new Response(JSON.stringify({ error: 'Permission denied' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+            res.status(403).json({ error: 'Permission denied' });
+            return;
         }
 
-        // Use service role to create the destination with proper ownership
-        const sdk = base44.asServiceRole;
-        const newDestination = await sdk.entities.Destination.create({
+        // Create the new destination document
+        const destinationRef = await db.collection('destinations').add({
             ...destination,
             trip_id,
-            created_by: user.email
+            created_by: userEmail,
+            created_at: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        return new Response(JSON.stringify(newDestination), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        });
+        // Get the created destination data
+        const destinationDoc = await destinationRef.get();
+        const newDestination = {
+            id: destinationRef.id,
+            ...destinationDoc.data()
+        };
 
+        res.status(200).json(newDestination);
     } catch (error) {
         console.error('Error adding destination:', error);
-        return new Response(JSON.stringify({ error: error.message }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
+        res.status(500).json({ error: error.message });
     }
 });

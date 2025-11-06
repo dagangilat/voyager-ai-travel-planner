@@ -1,0 +1,228 @@
+{
+  "users": {
+    "feedmyinfo@gmail.com": {
+      "username": "feedmyinfo",
+      "email": "feedmyinfo@gmail.com",
+      "profilePictureUrl": null,
+      "preferences": "{\"defaultCurrency\":\"USD\",\"languagePreference\":\"en\"}"
+    },
+    "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53@no-reply.base44.com": {
+      "username": "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53",
+      "email": "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53@no-reply.base44.com",
+      "profilePictureUrl": null,
+      "preferences": "{\"defaultCurrency\":\"USD\",\"languagePreference\":\"en\"}"
+    }
+  },
+  "trips": {
+    "69065a565507c850119d162e": {
+      "user": "feedmyinfo@gmail.com",
+      "name": "European Adventure 2025",
+      "startDate": {
+        "_seconds": 1763596800,
+        "_nanoseconds": 0
+      },
+      "endDate": {
+        "_seconds": 1764374400,
+        "_nanoseconds": 0
+      },
+      "destination": "Tel Aviv, Israel [TLV], Israel [TLV]",
+      "description": "",
+      "imageUrl": null,
+      "visibility": "PRIVATE",
+      "createdAt": {
+        "_seconds": 1762024022,
+        "_nanoseconds": 0
+      },
+      "updatedAt": {
+        "_seconds": 1762024022,
+        "_nanoseconds": 0
+      }
+    },
+    "69063dac65114158de5914d2": {
+      "user": "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53@no-reply.base44.com",
+      "name": "European Adventure 2025",
+      "startDate": {
+        "_seconds": 1764633600,
+        "_nanoseconds": 0
+      },
+      "endDate": {
+        "_seconds": 1765497600,
+        "_nanoseconds": 0
+      },
+      "destination": "Tel Aviv, Israel [TLV], Israel [TLV]",
+      "description": "",
+      "imageUrl": null,
+      "visibility": "PRIVATE",
+      "createdAt": {
+        "_seconds": 1762016684,
+        "_nanoseconds": 0
+      },
+      "updatedAt": {
+        "_seconds": 1762018600,
+        "_nanoseconds": 0
+      }
+    }
+  },
+  "itineraries": {
+    "69065a565507c850119d162e_day1": {
+      "trip": "69065a565507c850119d162e",
+      "dayNumber": 1,
+      "title": "Day 1: Rome, Italy [ROM], Italy [ROM]",
+      "notes": ""
+    },
+    "69065a565507c850119d162e_day2": {
+      "trip": "69065a565507c850119d162e",
+      "dayNumber": 2,
+      "title": "Day 2: Amsterdam, Netherlands [AMS], Netherlands [AMS]",
+      "notes": ""
+    },
+    "69065a565507c850119d162e_day3": {
+      "trip": "69065a565507c850119d162e",
+      "dayNumber": 3,
+      "title": "Day 3: Berlin, Germany [BER], Germany [BER]",
+      "notes": ""
+    },
+    "69063dac65114158de5914d2_day1": {
+      "trip": "69063dac65114158de5914d2",
+      "dayNumber": 1,
+      "title": "Day 1: Helsinki, Finland [HEL], Finland [HEL]",
+      "notes": ""
+    },
+    "69063dac65114158de5914d2_day2": {
+      "trip": "69063dac65114158de5914d2",
+      "dayNumber": 2,
+      "title": "Day 2: Stockholm, Sweden [STO], Sweden [STO]",
+      "notes": ""
+    },
+    "69063dac65114158de5914d2_day3": {
+      "trip": "69063dac65114158de5914d2",
+      "dayNumber": 3,
+      "title": "Day 3: Amsterdam, Netherlands [AMS], Netherlands [AMS]",
+      "notes": ""
+    }
+  },
+  "activities": {
+    "69065b31d976f7c777fc6e85": {
+      "itinerary": "69063dac65114158de5914d2_day2",
+      "name": "TRANSPORT - Helsinki, Finland [HEL], Finland [HEL]",
+      "type": "TRANSPORT",
+      "location": "Helsinki, Finland [HEL], Finland [HEL]",
+      "startTime": {
+        "_seconds": 1764645600,
+        "_nanoseconds": 0
+      },
+      "endTime": {
+        "_seconds": 1764683400,
+        "_nanoseconds": 0
+      },
+      "description": "Flight 152 • 2 stop(s)",
+      "bookingInfo": "{\"provider\":\"LO\",\"status\":\"saved\"}",
+      "cost": 324.29
+    },
+    "69065b2f9abd4444efb22cfe": {
+      "itinerary": "69063dac65114158de5914d2_day2",
+      "name": "TRANSPORT - Helsinki, Finland [HEL], Finland [HEL]",
+      "type": "TRANSPORT",
+      "location": "Helsinki, Finland [HEL], Finland [HEL]",
+      "startTime": {
+        "_seconds": 1764645600,
+        "_nanoseconds": 0
+      },
+      "endTime": {
+        "_seconds": 1764673500,
+        "_nanoseconds": 0
+      },
+      "description": "Flight 929 • 2 stop(s)",
+      "bookingInfo": "{\"provider\":\"A3\",\"status\":\"saved\"}",
+      "cost": 162.33
+    },
+    "69065a66a38ed3dec2c39f29": {
+      "itinerary": "69065a565507c850119d162e_day7",
+      "name": "The Ritz-Carlton, Berlin",
+      "type": "ACCOMMODATION",
+      "location": "Berlin, Germany",
+      "startTime": {
+        "_seconds": 1764115200,
+        "_nanoseconds": 0
+      },
+      "endTime": {
+        "_seconds": 1764374400,
+        "_nanoseconds": 0
+      },
+      "description": "",
+      "bookingInfo": "{\"status\":\"saved\"}",
+      "cost": 750
+    },
+    "690645769a1382b1213a5293": {
+      "itinerary": "69063dac65114158de5914d2_day1",
+      "name": "Hotel Kämp",
+      "type": "ACCOMMODATION",
+      "location": "Pohjoisesplanadi 29, 00100 Helsinki, Finland",
+      "startTime": {
+        "_seconds": 1764633600,
+        "_nanoseconds": 0
+      },
+      "endTime": {
+        "_seconds": 1764892800,
+        "_nanoseconds": 0
+      },
+      "description": "A luxurious 5-star hotel located in the heart of Helsinki, offering elegant rooms, a renowned spa, and gourmet dining options.",
+      "bookingInfo": "{\"status\":\"saved\"}",
+      "cost": 900
+    },
+    "69065a6616b260c873fbe59e": {
+      "itinerary": "69065a565507c850119d162e_day9",
+      "name": "Potsdam Day Trip",
+      "type": "ATTRACTION",
+      "location": "Berlin, Germany",
+      "startTime": {
+        "_seconds": 1764288000,
+        "_nanoseconds": 0
+      },
+      "endTime": {
+        "_seconds": 1764288000,
+        "_nanoseconds": 0
+      },
+      "description": "",
+      "bookingInfo": "{\"provider\":\"Berlin Tours\",\"status\":\"saved\"}",
+      "cost": 100
+    },
+    "690645ae4a92aba2e87ed082": {
+      "itinerary": "69063dac65114158de5914d2_day2",
+      "name": "Helsinki Highlights Sightseeing Guided Tour, Small Group",
+      "type": "ATTRACTION",
+      "location": "Helsinki, Finland",
+      "startTime": {
+        "_seconds": 1764720000,
+        "_nanoseconds": 0
+      },
+      "endTime": {
+        "_seconds": 1764720000,
+        "_nanoseconds": 0
+      },
+      "description": "A comprehensive half-day tour in a luxury van, visiting top attractions like Helsinki Cathedral and the Rock Church, with insightful commentary on the city's history and culture.",
+      "bookingInfo": "{\"provider\":\"Viator\",\"status\":\"saved\"}",
+      "cost": 84
+    }
+  },
+  "collaborations": {
+    "feedmyinfo@gmail.com_69065a565507c850119d162e": {
+      "user": "feedmyinfo@gmail.com",
+      "trip": "69065a565507c850119d162e",
+      "role": "OWNER",
+      "createdAt": {
+        "_seconds": 1762024022,
+        "_nanoseconds": 0
+      }
+    },
+    "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53@no-reply.base44.com_69063dac65114158de5914d2": {
+      "user": "service+043f99fa-f7b3-4dd4-80d6-47e1a785db53@no-reply.base44.com",
+      "trip": "69063dac65114158de5914d2",
+      "role": "OWNER",
+      "createdAt": {
+        "_seconds": 1762016684,
+        "_nanoseconds": 0
+      }
+    }
+  }
+}

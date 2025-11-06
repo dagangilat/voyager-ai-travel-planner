@@ -1,102 +1,49 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+const functions = require('firebase-functions');
+const { db, admin } = require('./shared/admin');
 
-const MCP_SERVER_URL = Deno.env.get("MCP_SERVER_URL");
-const MCP_API_KEY = Deno.env.get("MCP_API_KEY");
+exports.makeReservation = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
 
-Deno.serve(async (req) => {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+  const { trip_id, reservation_type, details, booking_url } = req.body;
+  if (!trip_id || !reservation_type || !details) {
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
 
-    if (!user) {
-        return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  try {
+    const userEmail = req.user?.email || 'unknown@example.com';
+
+    const tripDoc = await db.collection('trips').doc(trip_id).get();
+    if (!tripDoc.exists) {
+      res.status(404).json({ error: 'Trip not found' });
+      return;
     }
 
-    if (!MCP_SERVER_URL || !MCP_API_KEY) {
-        console.error("MCP Server URL or API Key is not configured.");
-        return Response.json({ 
-            success: false, 
-            error: "Booking service not configured. Please contact support." 
-        }, { status: 500 });
+    const trip = tripDoc.data();
+    const isOwner = trip.created_by === userEmail;
+    const isEditor = trip.shared_with?.some((s) => s.user_email === userEmail && s.role === 'editor');
+    if (!isOwner && !isEditor) {
+      res.status(403).json({ error: 'Permission denied' });
+      return;
     }
 
-    try {
-        const { lodging_id, platform, property_name, location, check_in, check_out } = await req.json();
+    const collectionName = `${reservation_type}s`;
+    const ref = await db.collection(collectionName).add({
+      ...details,
+      trip_id,
+      booking_url,
+      status: 'pending',
+      created_by: userEmail,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
-        console.log("Booking request:", { lodging_id, platform, property_name, location, check_in, check_out });
-
-        const mcpPayload = {
-            booking_details: {
-                platform: platform || 'booking.com',
-                property: property_name,
-                city: location,
-                checkin_date: check_in,
-                checkout_date: check_out,
-                num_adults: 2,
-            },
-            user_info: {
-                email: user.email,
-                full_name: user.full_name,
-            }
-        };
-
-        console.log("Calling MCP server at:", MCP_SERVER_URL);
-        console.log("MCP payload:", JSON.stringify(mcpPayload, null, 2));
-
-        const mcpResponse = await fetch(MCP_SERVER_URL, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${MCP_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(mcpPayload)
-        });
-
-        console.log("MCP response status:", mcpResponse.status);
-        
-        let responseData;
-        const responseText = await mcpResponse.text();
-        console.log("MCP raw response:", responseText);
-
-        try {
-            responseData = JSON.parse(responseText);
-        } catch (e) {
-            console.error("Failed to parse MCP response as JSON:", e);
-            return Response.json({ 
-                success: false, 
-                error: `Invalid response from booking service: ${responseText.substring(0, 200)}` 
-            }, { status: 500 });
-        }
-
-        if (!mcpResponse.ok) {
-            console.error("MCP server error:", responseData);
-            const errorMessage = responseData.error_message || responseData.error || `Booking service returned error ${mcpResponse.status}`;
-            return Response.json({ 
-                success: false, 
-                error: errorMessage 
-            }, { status: 400 });
-        }
-
-        if (responseData.status === 'confirmed' && responseData.booking_id) {
-            console.log(`Booking successful with reference: ${responseData.booking_id}`);
-            return Response.json({
-                success: true,
-                booking_reference: responseData.booking_id,
-                total_price: responseData.price,
-            });
-        } else {
-            const errorMessage = responseData.error_message || responseData.error || 'Booking could not be confirmed';
-            console.error("Booking not confirmed:", responseData);
-            return Response.json({ 
-                success: false, 
-                error: errorMessage 
-            }, { status: 400 });
-        }
-
-    } catch (error) {
-        console.error("Error in makeReservation:", error.message, error.stack);
-        return Response.json({ 
-            success: false, 
-            error: `Booking failed: ${error.message}` 
-        }, { status: 500 });
-    }
+    const doc = await ref.get();
+    res.status(200).json({ id: ref.id, ...doc.data() });
+  } catch (error) {
+    console.error('Error making reservation:', error);
+    res.status(500).json({ error: error.message });
+  }
 });

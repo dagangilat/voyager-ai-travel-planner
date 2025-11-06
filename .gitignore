@@ -28,3 +28,10 @@ dist-ssr
 *.sw?
 
 .env
+
+# Firebase / Google Cloud service account keys
+serviceAccountKey.json
+*.json.bak
+service-account.json
+service-account.json.backup
+*-service-account.json

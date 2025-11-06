@@ -1,0 +1,56 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // User rules
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    // Trip rules
+    match /trips/{tripId} {
+      allow read: if isSignedIn() && 
+        (resource.data.user == request.auth.uid || 
+         exists(/databases/$(database)/documents/collaborations/$(request.auth.uid)_$(tripId)));
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && resource.data.user == request.auth.uid;
+    }
+
+    // Itinerary rules
+    match /itineraries/{itineraryId} {
+      allow read: if isSignedIn() && 
+        get(/databases/$(database)/documents/trips/$(resource.data.trip)).data.user == request.auth.uid;
+      allow write: if isSignedIn() && 
+        get(/databases/$(database)/documents/trips/$(request.resource.data.trip)).data.user == request.auth.uid;
+    }
+
+    // Activity rules
+    match /activities/{activityId} {
+      allow read: if isSignedIn() && 
+        get(/databases/$(database)/documents/trips/$(get(/databases/$(database)/documents/itineraries/$(resource.data.itinerary)).data.trip)).data.user == request.auth.uid;
+      allow write: if isSignedIn() && 
+        get(/databases/$(database)/documents/trips/$(get(/databases/$(database)/documents/itineraries/$(request.resource.data.itinerary)).data.trip)).data.user == request.auth.uid;
+    }
+
+    // Collaboration rules
+    match /collaborations/{collaborationId} {
+      allow read: if isSignedIn() && 
+        (resource.data.user == request.auth.uid || 
+         get(/databases/$(database)/documents/trips/$(resource.data.trip)).data.user == request.auth.uid);
+      allow create: if isSignedIn() && 
+        get(/databases/$(database)/documents/trips/$(request.resource.data.trip)).data.user == request.auth.uid;
+      allow update, delete: if isSignedIn() && 
+        get(/databases/$(database)/documents/trips/$(resource.data.trip)).data.user == request.auth.uid;
+    }
+  }
+}
