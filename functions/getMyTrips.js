@@ -2,6 +2,15 @@ const functions = require('firebase-functions');
 const { db } = require('./shared/admin');
 
 exports.getMyTrips = functions.https.onRequest(async (req, res) => {
+  // CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send('');
+  }
+  
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

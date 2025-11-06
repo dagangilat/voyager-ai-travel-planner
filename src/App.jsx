@@ -35,6 +35,9 @@ const AuthenticatedApp = () => {
   const { isLoadingAuth, authError, isAuthenticated } = useAuth();
   const location = window.location.pathname;
   const isLoginPage = location === '/Login' || location === '/';
+  
+  // Extract current page name from path
+  const currentPageName = location.substring(1) || mainPageKey;
 
   // Show loading spinner while checking auth
   if (isLoadingAuth) {
@@ -69,7 +72,7 @@ const AuthenticatedApp = () => {
 
   // Render the main app
   return (
-    <LayoutWrapper currentPageName={mainPageKey}>
+    <LayoutWrapper currentPageName={currentPageName}>
       <Routes>
         <Route path="/" element={<MainPage />} />
         {Object.entries(Pages).map(([path, Page]) => (

@@ -59,19 +59,28 @@ export default function LocationSearchInput({
     try {
       const response = await firebaseClient.functions.invoke('searchGooglePlaces', {
         query,
-        includeAirportCodes
+        type: includeAirportCodes ? 'airport' : null
       });
 
-      console.log('Search response:', response.data);
+      console.log('Search response:', response);
 
-      const validLocations = response.data.locations ? response.data.locations.filter(loc => loc.name) : [];
+      // The response from the HTTP function is the data directly
+      const places = response.places || [];
+      
+      // Transform Google Places results to match expected format
+      const validLocations = places.map(place => ({
+        place_id: place.id,
+        name: place.name,
+        formatted_address: place.formatted_address,
+        code: place.id, // Use place_id as code for now
+        location: place.location
+      })).filter(loc => loc.name);
 
       setSuggestions(validLocations);
       setShowSuggestions(true);
       setSelectedIndex(-1);
     } catch (error) {
       console.error("Search error:", error);
-      console.error("Error response:", error.response?.data);
       setSuggestions([]);
     } finally {
       setIsSearching(false);
