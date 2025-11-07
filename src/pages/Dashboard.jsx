@@ -21,13 +21,14 @@ export default function Dashboard() {
   const { data: trips, isLoading: loadingTrips, error: tripsError } = useQuery({
     queryKey: ['trips', user?.id],
     queryFn: async () => {
+      console.log('[Dashboard] Fetching trips for user:', { userId: user.id, userEmail: user.email });
       // Filter trips by user_id to match Firestore security rules
       // Note: Temporarily without ordering until index builds
       const allTrips = await firebaseClient.entities.Trip.filter(
         { user_id: user.id }
         // '-departure_date' // Commented out until index builds
       );
-      console.log('Fetched trips:', allTrips);
+      console.log('[Dashboard] Fetched trips:', allTrips.map(t => ({ id: t.id, name: t.name, user_id: t.user_id })));
       // Sort in memory for now
       return allTrips.sort((a, b) => {
         const dateA = new Date(a.departure_date || 0);

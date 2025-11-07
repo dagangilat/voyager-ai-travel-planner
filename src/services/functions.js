@@ -1,4 +1,4 @@
-import { functions } from '@/config/firebase';
+import { auth } from '@/config/firebase';
 
 /**
  * Firebase Functions Service
@@ -10,10 +10,26 @@ const REGION = 'us-central1';
 const PROJECT_ID = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'voyager-ai-travel-planner';
 const FUNCTIONS_BASE_URL = `https://${REGION}-${PROJECT_ID}.cloudfunctions.net`;
 
+// Get the current user's ID token for authentication
+const getAuthToken = async () => {
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      return await user.getIdToken();
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+    }
+  }
+  return null;
+};
+
 // Generic function invoker
 export const invokeFunction = async (functionName, data) => {
   try {
     const url = `${FUNCTIONS_BASE_URL}/${functionName}`;
+    
+    // Get auth token
+    const token = await getAuthToken();
     
     // Determine HTTP method and construct request
     let requestInit = {
@@ -22,6 +38,11 @@ export const invokeFunction = async (functionName, data) => {
         'Content-Type': 'application/json',
       },
     };
+    
+    // Add Authorization header if we have a token
+    if (token) {
+      requestInit.headers['Authorization'] = `Bearer ${token}`;
+    }
     
     // Some functions use GET with query params
     let finalUrl = url;

@@ -90,8 +90,15 @@ export default function TripDetails() {
   const { data: trip, isLoading: loadingTrip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
-      return trips[0];
+      console.log('[TripDetails] Fetching trip:', { 
+        tripId, 
+        userId: user?.id,
+        userEmail: user?.email 
+      });
+      // Use .get() to fetch by document ID directly
+      const result = await firebaseClient.entities.Trip.get(tripId);
+      console.log('[TripDetails] Trip fetched successfully:', result);
+      return result;
     },
     enabled: !!tripId && !!user
   });
@@ -108,9 +115,8 @@ export default function TripDetails() {
   const { data: transportation = [] } = useQuery({
     queryKey: ['transportation', tripId],
     queryFn: async () => {
-  const data = await firebaseClient.entities.Transportation.filter({ trip_id: tripId });
-      // Sort by departure_datetime - earliest first
-      return data.sort((a, b) => new Date(a.departure_datetime) - new Date(b.departure_datetime));
+      // Server-side sorting by departure_datetime (uses Firestore index)
+      return await firebaseClient.entities.Transportation.filter({ trip_id: tripId }, 'departure_datetime');
     },
     enabled: !!trip
   });
@@ -118,9 +124,8 @@ export default function TripDetails() {
   const { data: lodging = [] } = useQuery({
     queryKey: ['lodging', tripId],
     queryFn: async () => {
-  const data = await firebaseClient.entities.Lodging.filter({ trip_id: tripId });
-      // Sort by check_in_date - earliest first
-      return data.sort((a, b) => new Date(a.check_in_date) - new Date(b.check_in_date));
+      // Server-side sorting by check_in_date (uses Firestore index)
+      return await firebaseClient.entities.Lodging.filter({ trip_id: tripId }, 'check_in_date');
     },
     enabled: !!trip
   });
@@ -128,9 +133,8 @@ export default function TripDetails() {
   const { data: experiences = [] } = useQuery({
     queryKey: ['experiences', tripId],
     queryFn: async () => {
-  const data = await firebaseClient.entities.Experience.filter({ trip_id: tripId });
-      // Sort by date - earliest first
-      return data.sort((a, b) => new Date(a.date) - new Date(b.date));
+      // Server-side sorting by date (uses Firestore index)
+      return await firebaseClient.entities.Experience.filter({ trip_id: tripId }, 'date');
     },
     enabled: !!trip
   });

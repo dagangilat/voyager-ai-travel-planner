@@ -15,8 +15,46 @@ const statusColors = {
   cancelled: "bg-red-100 text-red-800 border-red-200"
 };
 
+// Helper to safely parse dates (handles Firestore timestamps and invalid dates)
+const safeParseDate = (dateValue) => {
+  if (!dateValue) return null;
+  
+  // Handle Firestore Timestamp objects
+  if (dateValue?.toDate) {
+    return dateValue.toDate();
+  }
+  
+  // Handle Firestore Timestamp with seconds
+  if (dateValue?._seconds) {
+    return new Date(dateValue._seconds * 1000);
+  }
+  
+  // Handle string or number dates
+  const date = new Date(dateValue);
+  return isNaN(date.getTime()) ? null : date;
+};
+
+// Helper to safely format dates
+const safeFormatDate = (dateValue, formatString = 'MMM d, yyyy') => {
+  const date = safeParseDate(dateValue);
+  if (!date) return 'TBD';
+  
+  try {
+    return format(date, formatString);
+  } catch (error) {
+    console.error('Error formatting date:', error, dateValue);
+    return 'TBD';
+  }
+};
+
 export default function TripCard({ trip, destinations = [] }) {
-  const tripDuration = differenceInDays(new Date(trip.return_date || trip.departure_date), new Date(trip.departure_date));
+  const departureDate = safeParseDate(trip.departure_date);
+  const returnDate = safeParseDate(trip.return_date) || departureDate;
+  
+  const tripDuration = departureDate && returnDate 
+    ? differenceInDays(returnDate, departureDate) 
+    : 0;
+    
   const firstDestination = destinations[0];
 
   return (
@@ -58,7 +96,7 @@ export default function TripCard({ trip, destinations = [] }) {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Departure</p>
-                  <p className="text-sm font-semibold text-gray-900">{format(new Date(trip.departure_date), 'MMM d, yyyy')}</p>
+                  <p className="text-sm font-semibold text-gray-900">{safeFormatDate(trip.departure_date)}</p>
                 </div>
               </div>
               

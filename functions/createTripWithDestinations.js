@@ -23,11 +23,31 @@ exports.createTripWithDestinations = functions.https.onRequest(async (req, res) 
   }
 
   try {
-    const userEmail = req.user?.email || 'unknown@example.com';
+    // Verify Firebase Auth token
+    let userId = null;
+    let userEmail = 'unknown@example.com';
+    
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const idToken = authHeader.split('Bearer ')[1];
+      try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        userId = decodedToken.uid;
+        userEmail = decodedToken.email || userEmail;
+        console.log('[createTripWithDestinations] Authenticated user:', { userId, userEmail });
+      } catch (error) {
+        console.error('[createTripWithDestinations] Token verification failed:', error);
+        return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+      }
+    } else {
+      console.error('[createTripWithDestinations] No authorization header');
+      return res.status(401).json({ error: 'Unauthorized - No token provided' });
+    }
 
     const tripRef = db.collection('trips').doc();
     const tripData = {
       ...trip,
+      user_id: userId, // Use the verified user ID from the token
       created_by: userEmail,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),

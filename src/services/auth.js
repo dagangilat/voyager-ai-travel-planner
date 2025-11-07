@@ -7,7 +7,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 
 /**
@@ -67,12 +67,13 @@ export const updateUserProfile = async (data) => {
       });
     }
     
-    // Update Firestore user document
+    // Update or create Firestore user document
     const userRef = doc(db, 'users', user.uid);
-    await updateDoc(userRef, {
+    await setDoc(userRef, {
       ...data,
+      email: user.email, // Ensure email is always set
       updated_at: new Date().toISOString()
-    });
+    }, { merge: true }); // merge: true will create if doesn't exist, or update if it does
     
     return await getUserProfile();
   } catch (error) {

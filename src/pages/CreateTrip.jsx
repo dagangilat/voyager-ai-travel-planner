@@ -71,11 +71,13 @@ export default function CreateTrip() {
         trip,
         destinations
       });
-      return response.data;
+      // Response is already the data (not wrapped in .data)
+      return response;
     },
-    onSuccess: (newTrip) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['trips'] });
-      setCreatedTripId(newTrip.id);
+      // data contains { trip, destinations }
+      setCreatedTripId(data.trip?.id);
     },
   });
 
@@ -145,7 +147,8 @@ export default function CreateTrip() {
       return_date: returnDate,
       status: 'planning',
       budget_level: 'fine',
-      tempo: 'active'
+      tempo: 'active',
+      user_id: user.id  // Add user_id for Firestore security rules
     };
 
     const destData = destinations.map((dest, idx) => ({

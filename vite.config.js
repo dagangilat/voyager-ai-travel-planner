@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => {
             // Allow iframe embedding
             res.setHeader('X-Frame-Options', 'ALLOWALL');
             res.setHeader('Content-Security-Policy', "frame-ancestors *;");
+            // Fix COOP warning for OAuth popups
+            res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
             next();
           });
         }

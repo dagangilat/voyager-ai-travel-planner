@@ -40,16 +40,31 @@ export const createDocument = async (collectionName, data) => {
 // Get a single document by ID
 export const getDocument = async (collectionName, id) => {
   try {
+    console.log(`[Firestore] Getting document ${collectionName}/${id}...`);
+    console.log('[Firestore] Current auth user:', auth.currentUser ? {
+      uid: auth.currentUser.uid,
+      email: auth.currentUser.email
+    } : 'No user');
+    
     const docRef = doc(db, collectionName, id);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() };
+      const data = { id: docSnap.id, ...docSnap.data() };
+      console.log(`[Firestore] Got document from ${collectionName}/${id}:`, data);
+      return data;
     } else {
+      console.error(`[Firestore] Document not found in ${collectionName} with id: ${id}`);
       throw new Error(`Document not found in ${collectionName} with id: ${id}`);
     }
   } catch (error) {
-    console.error(`Error getting document from ${collectionName}:`, error);
+    console.error(`[Firestore] Error getting document from ${collectionName}/${id}:`, error);
+    console.error('[Firestore] Error details:', {
+      code: error.code,
+      message: error.message,
+      collectionName,
+      documentId: id
+    });
     throw error;
   }
 };

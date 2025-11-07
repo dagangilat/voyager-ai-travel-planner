@@ -22,9 +22,9 @@ export const firebaseClient = {
   integrations: {
     Core: {
       InvokeLLM: async (config) => {
-        console.warn('InvokeLLM not implemented yet - would need Gemini/OpenAI integration');
-        // You can implement this with Firebase Functions calling Gemini API
-        throw new Error('InvokeLLM not yet implemented');
+        // Call Firebase Function for LLM
+        const response = await functionsService.invoke('invokeLLM', config);
+        return response.result;
       },
       SendEmail: async (config) => {
         console.warn('SendEmail not implemented yet');

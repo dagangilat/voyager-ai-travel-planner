@@ -9,27 +9,43 @@
       ]
     },
     {
-      "collectionGroup": "trips",
+      "collectionGroup": "destinations",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "user", "order": "ASCENDING" },
-        { "fieldPath": "startDate", "order": "ASCENDING" }
+        { "fieldPath": "trip_id", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
       ]
     },
     {
-      "collectionGroup": "activities",
+      "collectionGroup": "transportation",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "itinerary", "order": "ASCENDING" },
-        { "fieldPath": "startTime", "order": "ASCENDING" }
+        { "fieldPath": "trip_id", "order": "ASCENDING" },
+        { "fieldPath": "departure_datetime", "order": "ASCENDING" }
       ]
     },
     {
-      "collectionGroup": "collaborations",
+      "collectionGroup": "lodging",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "user", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        { "fieldPath": "trip_id", "order": "ASCENDING" },
+        { "fieldPath": "check_in_date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "experiences",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trip_id", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "purchase_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "user_email", "order": "ASCENDING" },
+        { "fieldPath": "purchase_date", "order": "DESCENDING" }
       ]
     }
   ],

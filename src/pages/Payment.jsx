@@ -195,13 +195,18 @@ export default function Payment() {
     // Simulate payment processing delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    await processPaymentMutation.mutateAsync({
+    const paymentData = {
+      userId: user.id, // user.id is the Firebase uid
       amount,
       price,
-      payment_method: method,
+      paymentMethod: method,
       transaction_id: `${method.toUpperCase()}_${Date.now()}`,
       user_email: user.email
-    });
+    };
+    
+    console.log('🔍 Payment data being sent:', paymentData);
+    
+    await processPaymentMutation.mutateAsync(paymentData);
   };
 
   return (

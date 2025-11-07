@@ -138,7 +138,15 @@ export default function Billing() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {purchases.map((purchase) => (
+                    {purchases.map((purchase) => {
+                      // Safely convert Firestore Timestamp to Date
+                      const purchaseDate = purchase.purchase_date?.toDate 
+                        ? purchase.purchase_date.toDate() 
+                        : purchase.purchase_date 
+                        ? new Date(purchase.purchase_date)
+                        : new Date();
+                      
+                      return (
                       <motion.tr
                         key={purchase.id}
                         initial={{ opacity: 0 }}
@@ -146,9 +154,9 @@ export default function Billing() {
                         className="hover:bg-gray-50 transition-colors"
                       >
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {format(new Date(purchase.purchase_date), 'MMM dd, yyyy')}
+                          {format(purchaseDate, 'MMM dd, yyyy')}
                           <div className="text-xs text-gray-500">
-                            {format(new Date(purchase.purchase_date), 'HH:mm')}
+                            {format(purchaseDate, 'HH:mm')}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -156,7 +164,7 @@ export default function Billing() {
                             <Sparkles className="w-4 h-4 text-purple-600" />
                             <div>
                               <p className="text-sm font-medium text-gray-900">
-                                {purchase.amount} AI Credits
+                                {purchase.credits || purchase.amount} AI Credits
                               </p>
                               <p className="text-xs text-gray-500">
                                 {purchase.transaction_id}
@@ -179,7 +187,8 @@ export default function Billing() {
                           {getStatusBadge(purchase.status)}
                         </td>
                       </motion.tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

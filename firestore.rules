@@ -20,7 +20,7 @@ service cloud.firestore {
     // Trip rules
     match /trips/{tripId} {
       allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.user_id == request.auth.uid;
     }
 
@@ -42,6 +42,14 @@ service cloud.firestore {
     // Experience rules
     match /experiences/{experienceId} {
       allow read, write: if isSignedIn();
+    }
+
+    // Purchase history rules
+    match /purchase_history/{purchaseId} {
+      allow read: if isSignedIn() && 
+                     (resource.data.user_id == request.auth.uid || 
+                      resource.data.user_email == request.auth.token.email);
+      allow create: if isSignedIn();
     }
   }
 }
