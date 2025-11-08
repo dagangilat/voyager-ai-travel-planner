@@ -10,4 +10,6 @@ exports.searchAmadeusActivities = require('./searchAmadeusActivities').searchAma
 exports.searchAmadeusFlights = require('./searchAmadeusFlights').searchAmadeusFlights;
 exports.searchAmadeusHotels = require('./searchAmadeusHotels').searchAmadeusHotels;
 exports.searchGooglePlaces = require('./searchGooglePlaces').searchGooglePlaces;
+exports.searchGlobalDestinations = require('./searchGlobalDestinations').searchGlobalDestinations;
+exports.seedGlobalDestinations = require('./seedGlobalDestinations').seedGlobalDestinations;
 exports.exportDatabase = require('./exportDatabase').exportDatabase;

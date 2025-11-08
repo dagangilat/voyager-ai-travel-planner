@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import { useState } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -38,6 +37,9 @@ export default function CreateTrip() {
   const [createdTripId, setCreatedTripId] = useState(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [showAILimitDialog, setShowAILimitDialog] = useState(false);
+  const [departureDateOpen, setDepartureDateOpen] = useState(false);
+  const [destinationDateOpen, setDestinationDateOpen] = useState({});
+  const [aiProgress, setAiProgress] = useState({ show: false, message: '' });
 
   const { data: user } = useQuery({
     queryKey: ['user'],
@@ -164,6 +166,7 @@ export default function CreateTrip() {
 
       if (withAI && newTrip && newTrip.id) {
         setIsGeneratingAI(true);
+        setAiProgress({ show: true, message: 'Starting AI trip generation...' });
         
         try {
           const destinationsText = destData.map((d, i) =>
@@ -221,6 +224,8 @@ For each destination, provide 2-3 activity options with:
 Provide realistic, varied options at different price points. Use actual airline names, hotel chains, and activity providers.`;
 
           console.log('Calling AI with prompt...');
+          setAiProgress({ show: true, message: 'Generating trip recommendations...' });
+          
           const result = await firebaseClient.integrations.Core.InvokeLLM({
             prompt,
             add_context_from_internet: true,
@@ -287,16 +292,38 @@ Provide realistic, varied options at different price points. Use actual airline 
 
           console.log('AI Response received:', result);
 
-          // Create all items
-          const transportationPromises = (result.transportation || []).map(t =>
-            firebaseClient.entities.Transportation.create({
+          // Create transportation items with progress
+          const transportationItems = result.transportation || [];
+          console.log('Creating transportation items:', transportationItems.length);
+          
+          for (let i = 0; i < transportationItems.length; i++) {
+            const t = transportationItems[i];
+            const fromDisplay = t.from_location_display || t.from_location;
+            const toDisplay = t.to_location_display || t.to_location;
+            setAiProgress({ 
+              show: true, 
+              message: `Generating Transportation: ${fromDisplay} → ${toDisplay}` 
+            });
+            
+            await firebaseClient.entities.Transportation.create({
               ...t,
               trip_id: newTrip.id,
               status: 'saved'
-            })
-          );
+            });
+          }
 
-          const lodgingPromises = (result.lodging || []).map(l => {
+          // Create lodging items with progress
+          const lodgingItems = result.lodging || [];
+          console.log('Creating lodging items:', lodgingItems.length);
+          
+          for (let i = 0; i < lodgingItems.length; i++) {
+            const l = lodgingItems[i];
+            const locationDisplay = l.location_display || l.location;
+            setAiProgress({ 
+              show: true, 
+              message: `Generating Lodging: ${l.name} in ${locationDisplay}` 
+            });
+            
             let nights = 1;
             if (l.check_in_date && l.check_out_date) {
               const checkIn = new Date(l.check_in_date);
@@ -305,27 +332,32 @@ Provide realistic, varied options at different price points. Use actual airline 
               nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             }
 
-            return firebaseClient.entities.Lodging.create({
+            await firebaseClient.entities.Lodging.create({
               ...l,
               trip_id: newTrip.id,
               total_price: l.price_per_night && nights > 0 ? l.price_per_night * nights : undefined,
               status: 'saved'
             });
-          });
+          }
 
-          const experiencesPromises = (result.experiences || []).map(e =>
-            firebaseClient.entities.Experience.create({
+          // Create experience items with progress
+          const experienceItems = result.experiences || [];
+          console.log('Creating experience items:', experienceItems.length);
+          
+          for (let i = 0; i < experienceItems.length; i++) {
+            const e = experienceItems[i];
+            const locationDisplay = e.location_display || e.location;
+            setAiProgress({ 
+              show: true, 
+              message: `Generating Experience: ${e.name} in ${locationDisplay}` 
+            });
+            
+            await firebaseClient.entities.Experience.create({
               ...e,
               trip_id: newTrip.id,
               status: 'saved'
-            })
-          );
-
-          await Promise.all([
-            ...transportationPromises,
-            ...lodgingPromises,
-            ...experiencesPromises
-          ]);
+            });
+          }
 
           console.log('All items created successfully');
           
@@ -345,6 +377,7 @@ Provide realistic, varied options at different price points. Use actual airline 
           // Still show success dialog even if AI fails - trip was created
         } finally {
           setIsGeneratingAI(false);
+          setAiProgress({ show: false, message: '' });
         }
       }
 
@@ -434,7 +467,7 @@ Provide realistic, varied options at different price points. Use actual airline 
                 <Label className="text-sm font-semibold text-gray-700">
                   <span className="font-bold">On</span> (Departure Date)
                 </Label>
-                <Popover>
+                <Popover open={departureDateOpen} onOpenChange={setDepartureDateOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -451,7 +484,12 @@ Provide realistic, varied options at different price points. Use actual airline 
                     <CalendarIcon
                       mode="single"
                       selected={departureDate ? new Date(departureDate) : undefined}
-                      onSelect={(date) => date && setDepartureDate(format(date, 'yyyy-MM-dd'))}
+                      onSelect={(date) => {
+                        if (date) {
+                          setDepartureDate(format(date, 'yyyy-MM-dd'));
+                          setDepartureDateOpen(false);
+                        }
+                      }}
                       disabled={(date) => date < new Date()}
                       initialFocus
                     />
@@ -533,7 +571,10 @@ Provide realistic, varied options at different price points. Use actual airline 
                             <Label className="text-sm font-semibold text-gray-700">
                               <span className="font-bold">On</span> (Arrival Date)
                             </Label>
-                            <Popover>
+                            <Popover 
+                              open={destinationDateOpen[index]} 
+                              onOpenChange={(open) => setDestinationDateOpen(prev => ({ ...prev, [index]: open }))}
+                            >
                               <PopoverTrigger asChild>
                                 <Button
                                   variant="outline"
@@ -550,7 +591,12 @@ Provide realistic, varied options at different price points. Use actual airline 
                                 <CalendarIcon
                                   mode="single"
                                   selected={dest.arrival_date ? new Date(dest.arrival_date) : undefined}
-                                  onSelect={(date) => date && updateDestination(index, 'arrival_date', format(date, 'yyyy-MM-dd'))}
+                                  onSelect={(date) => {
+                                    if (date) {
+                                      updateDestination(index, 'arrival_date', format(date, 'yyyy-MM-dd'));
+                                      setDestinationDateOpen(prev => ({ ...prev, [index]: false }));
+                                    }
+                                  }}
                                   disabled={(date) => date < new Date(getMinDateForDestination(index))}
                                   defaultMonth={dest.arrival_date ? new Date(dest.arrival_date) : new Date(getMinDateForDestination(index))}
                                   initialFocus
@@ -664,7 +710,7 @@ Provide realistic, varied options at different price points. Use actual airline 
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center">No AI Generations Left</DialogTitle>
             <DialogDescription className="text-center text-base pt-2">
-              You've used your free AI trip generation for this month. Your limit will reset next month, or you can manually plan your trip.
+              You&apos;ve used your free AI trip generation for this month. Your limit will reset next month, or you can manually plan your trip.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -677,6 +723,43 @@ Provide realistic, varied options at different price points. Use actual airline 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI Progress Overlay */}
+      <AnimatePresence>
+        {aiProgress.show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-blue-600/20 backdrop-blur-sm z-50 flex items-center justify-center"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4"
+            >
+              <div className="flex flex-col items-center space-y-4">
+                <div className="relative">
+                  <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+                  <Sparkles className="w-6 h-6 text-purple-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    AI Trip Planning in Progress
+                  </h3>
+                  <p className="text-blue-600 font-medium">
+                    {aiProgress.message}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    This may take a minute...
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

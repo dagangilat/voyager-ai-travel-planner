@@ -47,6 +47,14 @@
         { "fieldPath": "user_email", "order": "ASCENDING" },
         { "fieldPath": "purchase_date", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "GlobalDestinations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "search_terms", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "popularity", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

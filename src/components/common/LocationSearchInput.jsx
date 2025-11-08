@@ -26,12 +26,15 @@ export default function LocationSearchInput({
   const justSelected = useRef(false);
 
   useEffect(() => {
-    if (!justSelected.current && value && !displayValue) {
-      setSearchQuery(value);
-      setDisplayValue(value);
+    if (!justSelected.current && value) {
+      // If value looks like a display name (not a Place ID), use it as display
+      if (!value.startsWith('ChIJ')) {
+        setSearchQuery(value);
+        setDisplayValue(value);
+      }
     }
     justSelected.current = false;
-  }, [value, displayValue]);
+  }, [value]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -57,7 +60,8 @@ export default function LocationSearchInput({
     setIsSearching(true);
 
     try {
-      const response = await firebaseClient.functions.invoke('searchGooglePlaces', {
+      // Use new searchGlobalDestinations function that searches local DB first
+      const response = await firebaseClient.functions.invoke('searchGlobalDestinations', {
         query,
         type: includeAirportCodes ? 'airport' : null
       });
@@ -67,13 +71,14 @@ export default function LocationSearchInput({
       // The response from the HTTP function is the data directly
       const places = response.places || [];
       
-      // Transform Google Places results to match expected format
+      // Transform results to match expected format
       const validLocations = places.map(place => ({
         place_id: place.id,
         name: place.name,
         formatted_address: place.formatted_address,
         code: place.id, // Use place_id as code for now
-        location: place.location
+        location: place.location,
+        source: place.source // 'local' or 'google'
       })).filter(loc => loc.name);
 
       setSuggestions(validLocations);

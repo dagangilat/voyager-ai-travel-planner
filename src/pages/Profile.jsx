@@ -259,7 +259,7 @@ export default function Profile() {
               {isEditing ? (
                 <LocationSearchInput
                   id="home_airport"
-                  value={formData.home_airport}
+                  value={formData.home_airport_display || formData.home_airport}
                   onChange={(code, displayName) => {
                     setFormData({
                       ...formData,

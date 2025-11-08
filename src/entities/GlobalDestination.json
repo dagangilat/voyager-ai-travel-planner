@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "GlobalDestination",
+  "description": "Pre-normalized global destinations including cities and airports for fast searching",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the destination"
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name in format: City, Country [CODE] or City, Country",
+      "examples": ["Tel Aviv, Israel [TLV]", "Paris, France", "New York, USA [JFK]"]
+    },
+    "city": {
+      "type": "string",
+      "description": "City name"
+    },
+    "country": {
+      "type": "string",
+      "description": "Country name"
+    },
+    "code": {
+      "type": "string",
+      "description": "Airport IATA code or city code (3 letters)",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["airport", "city"],
+      "description": "Type of destination"
+    },
+    "place_id": {
+      "type": "string",
+      "description": "Google Places ID if available"
+    },
+    "location": {
+      "type": "object",
+      "description": "Geographic coordinates",
+      "properties": {
+        "lat": {
+          "type": "number"
+        },
+        "lng": {
+          "type": "number"
+        }
+      }
+    },
+    "search_terms": {
+      "type": "array",
+      "description": "Additional search terms for matching (lowercase)",
+      "items": {
+        "type": "string"
+      }
+    },
+    "popularity": {
+      "type": "number",
+      "description": "Popularity score (higher = more popular, used for ranking)",
+      "minimum": 0,
+      "maximum": 100
+    }
+  },
+  "required": ["name", "city", "country", "type"],
+  "additionalProperties": false
+}

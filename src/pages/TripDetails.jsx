@@ -847,13 +847,24 @@ Make realistic suggestions based on actual available services. Consider travel t
     }
     
     // Try to extract code from brackets like "Tel Aviv, Israel [TLV]"
-    const codeMatch = location.match(/\[([A-Z]{3})\]/i);
-    if (codeMatch) {
-      return codeMatch[1].toUpperCase();
+    const bracketMatch = location.match(/\[([A-Z]{3})\]/i);
+    if (bracketMatch) {
+      return bracketMatch[1].toUpperCase();
     }
     
-    // Return original if no code found
-    return location;
+    // Try to extract code from parentheses like "Amsterdam Airport Schiphol (AMS)"
+    const parenMatch = location.match(/\(([A-Z]{3})\)/i);
+    if (parenMatch) {
+      return parenMatch[1].toUpperCase();
+    }
+    
+    // If location is stored as a Place ID, we can't extract a code
+    if (location.startsWith('ChIJ')) {
+      return '';
+    }
+    
+    // Return original if it looks like a 3-letter code, otherwise return empty
+    return /^[A-Z]{3}$/i.test(location) ? location.toUpperCase() : '';
   };
 
   // Helper to ensure proper location display format
@@ -865,17 +876,35 @@ Make realistic suggestions based on actual available services. Consider travel t
     
     // If we only have a 3-letter code, return it as-is (can't reconstruct full name)
     if (code && /^[A-Z]{3}$/i.test(code) && (!displayName || displayName === code)) {
-      return code;
+      return `[${code}]`;
     }
     
-    // If displayName exists but no code in brackets, check if it should have one
-    if (displayName && code && displayName !== code && !/\[([A-Z]{3})\]/.test(displayName)) {
-      // Don't add the code if displayName already ends with the country name
-      return `${displayName} [${code}]`;
+    // Handle airport names like "Amsterdam Airport Schiphol (AMS)" or "Amsterdam Airport Schiphol"
+    if (displayName) {
+      // Extract airport code from display name if present
+      const codeMatch = displayName.match(/\(([A-Z]{3})\)|\[([A-Z]{3})\]/);
+      const extractedCode = codeMatch ? (codeMatch[1] || codeMatch[2]) : code;
+      
+      // If it looks like an airport name (contains "Airport" or "International")
+      if (displayName.match(/Airport|International/i)) {
+        // Try to extract city name (usually the first word(s) before "Airport")
+        const cityMatch = displayName.match(/^([^(]+?)\s+(Airport|International)/i);
+        if (cityMatch && extractedCode) {
+          const cityName = cityMatch[1].trim();
+          return `${cityName} [${extractedCode}]`;
+        }
+      }
+      
+      // If displayName exists but no code in brackets, add it
+      if (extractedCode && !/\[([A-Z]{3})\]/.test(displayName)) {
+        // Remove any existing code in parentheses before adding brackets
+        const cleanName = displayName.replace(/\s*\([A-Z]{3}\)\s*/g, '').trim();
+        return `${cleanName} [${extractedCode}]`;
+      }
     }
     
     // Fallback
-    return displayName || code || 'Unknown';
+    return displayName || (code ? `[${code}]` : 'Unknown');
   };
 
   const getFallbackUrl = (item, category) => {
@@ -892,7 +921,16 @@ Make realistic suggestions based on actual available services. Consider travel t
         const fromCode = extractIataCode(item.from_location_display || item.from_location);
         const toCode = extractIataCode(item.to_location_display || item.to_location);
         
-        return `https://www.skyscanner.com/transport/flights/${fromCode.toLowerCase()}/${toCode.toLowerCase()}/${dateStr}/?adultsv2=1&cabinclass=economy&rtn=0&preferdirects=false`;
+        // If we have valid IATA codes, use Skyscanner
+        if (fromCode && toCode && fromCode.length === 3 && toCode.length === 3) {
+          return `https://www.skyscanner.com/transport/flights/${fromCode.toLowerCase()}/${toCode.toLowerCase()}/${dateStr}/?adultsv2=1&cabinclass=economy&rtn=0&preferdirects=false`;
+        } else {
+          // Fallback to Google Flights if we can't extract valid codes
+          const from = encodeURIComponent(item.from_location_display || item.from_location);
+          const to = encodeURIComponent(item.to_location_display || item.to_location);
+          const date = departureDate.toISOString().split('T')[0]; // YYYY-MM-DD
+          return `https://www.google.com/travel/flights?q=flights%20from%20${from}%20to%20${to}%20on%20${date}`;
+        }
       } else if (item.type === 'train') {
         // Trainline search
         const from = encodeURIComponent(item.from_location_display || item.from_location);

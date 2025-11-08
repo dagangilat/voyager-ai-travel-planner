@@ -137,8 +137,8 @@ export default function SearchLodging() {
       setSearchParams({
         ...searchParams,
         destination_id: destId,
-        location: destination.location,
-        location_display: destination.location_name || destination.location,
+        location: destination.location, // Keep the Place ID for reference
+        location_display: destination.location_name || destination.location, // Use display name
         check_in_date: destination.arrival_date,
         check_out_date: format(checkOutDate, 'yyyy-MM-dd')
       });
@@ -324,9 +324,16 @@ Return 5-8 options with varied price points if available.`;
                 <LocationSearchInput
                   id="location"
                   label="Or Search Location Manually"
-                  value={searchParams.location}
-                  onChange={(value) => setSearchParams({ ...searchParams, location: value })}
-                  onDisplayChange={(display) => setSearchParams(prev => ({ ...prev, location_display: display }))}
+                  value={searchParams.location_display || searchParams.location}
+                  onChange={(placeId, displayName) => setSearchParams({ 
+                    ...searchParams, 
+                    location: placeId,
+                    location_display: displayName 
+                  })}
+                  onDisplayChange={(display) => setSearchParams(prev => ({ 
+                    ...prev, 
+                    location_display: display 
+                  }))}
                   placeholder="Search city or area"
                   includeAirportCodes={false}
                 />
