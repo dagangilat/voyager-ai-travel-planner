@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear React Query Cache</title>
+</head>
+<body>
+    <h1>Clear React Query Cache</h1>
+    <button onclick="clearCache()">Clear Cache & Reload</button>
+    <script>
+        function clearCache() {
+            // Clear localStorage
+            localStorage.clear();
+            // Clear sessionStorage
+            sessionStorage.clear();
+            // Clear IndexedDB
+            indexedDB.databases().then(dbs => {
+                dbs.forEach(db => indexedDB.deleteDatabase(db.name));
+            });
+            // Force hard reload
+            location.reload(true);
+        }
+    </script>
+</body>
+</html>

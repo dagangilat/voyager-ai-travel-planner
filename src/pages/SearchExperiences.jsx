@@ -197,40 +197,24 @@ export default function SearchExperiences() {
         location_coordinates: destination.location_coordinates,
       });
       
-      // If coordinates aren't available, try to get from place or geocode
+      // Get coordinates from enriched destination (already has place coordinates)
       let coordinates = destination.location_coordinates;
-      if (!coordinates?.lat && destination.location_name) {
+      
+      // If still no coordinates, try to get directly from places
+      if (!coordinates?.lat) {
         console.log('[SearchExperiences] Need coordinates for:', destination.location_name);
-        
-        // First try to get from place
         const place = places.find(p => p.id === destination.location);
         if (place?.location?.lat) {
           coordinates = place.location;
           console.log('[SearchExperiences] Got coordinates from place:', coordinates);
-        } else {
-          // Try geocoding as fallback
+          
+          // Update the destination with coordinates for future use
           try {
-            // Extract city name from location_name (e.g., "Rome, Italy [FCO]" -> "Rome, Italy")
-            const cityName = destination.location_name.replace(/\s*\[.*?\]\s*$/, '').trim();
-            
-            console.log('[SearchExperiences] Geocoding location:', cityName);
-            const geocodeResponse = await firebaseClient.functions.invoke('geocodeLocation', {
-              address: cityName
+            await firebaseClient.entities.Destination.update(destId, {
+              location_coordinates: coordinates
             });
-            
-            if (geocodeResponse?.location) {
-              coordinates = geocodeResponse.location;
-              console.log('[SearchExperiences] Geocoded coordinates:', coordinates);
-              
-              // Update the destination with coordinates for future use
-              await firebaseClient.entities.Destination.update(destId, {
-                location_coordinates: coordinates
-              });
-            }
           } catch (error) {
-            console.error('[SearchExperiences] Geocoding error:', error);
-            // If geocoding fails, try to extract coordinates from the location string
-            // This is a fallback for places that don't have coordinates
+            console.error('[SearchExperiences] Error updating destination coordinates:', error);
           }
         }
       }
