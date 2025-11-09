@@ -402,7 +402,7 @@ Provide realistic, varied options at different price points. Use actual airline 
   };
 
   const canSubmit = tripName && origin && departureDate && destinations.length > 0 && 
-    destinations.every(d => d.location && d.arrival_date && d.nights);
+    destinations.every(d => (d.location || d.location_name) && d.arrival_date && d.nights);
 
   const aiCredits = user?.credits?.ai_generations_remaining || 0;
   
@@ -453,7 +453,7 @@ Provide realistic, varied options at different price points. Use actual airline 
                 </Label>
                 <LocationSearchInput
                   id="origin"
-                  value={origin}
+                  value={originDisplay || origin}
                   onChange={(code, displayName) => {
                     setOrigin(code);
                     setOriginDisplay(displayName);
@@ -557,7 +557,7 @@ Provide realistic, varied options at different price points. Use actual airline 
                       <div className="space-y-4">
                         <LocationSearchInput
                           id={`dest-location-${index}`}
-                          value={dest.location}
+                          value={dest.location_name || dest.location}
                           onChange={(code, displayName) => {
                             updateDestination(index, 'location', code);
                             updateDestination(index, 'location_name', displayName);

@@ -94,13 +94,12 @@ export default function ExperienceForm({ experience, onSave, onCancel, minDate, 
           <LocationSearchInput
             id="location"
             label="Location"
-            value={formData.location} // This should be the internal code (e.g., 'NYC')
-            displayValue={formData.location_display} // This is the displayed value (e.g., 'New York, United States [NYC]')
-            onChange={(code, displayName) => { // Updated onChange signature to receive both
+            value={formData.location_display || formData.location}
+            onChange={(code, displayName) => {
               setFormData({
                 ...formData,
                 location: code,
-                location_display: displayName // Store full "City, Country [CODE]" format
+                location_display: displayName
               });
             }}
             placeholder="City or area"

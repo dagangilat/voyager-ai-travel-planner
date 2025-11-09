@@ -190,7 +190,8 @@ export default function SearchExperiences() {
   const handleDestinationChange = async (destId) => {
     const destination = enrichedDestinations.find(d => d.id === destId);
     if (destination) {
-      console.log('[SearchExperiences] Selected destination:', {
+      console.log('[SearchExperiences] Selected destination RAW:', destination);
+      console.log('[SearchExperiences] Selected destination details:', {
         id: destId,
         location: destination.location,
         location_name: destination.location_name,
@@ -207,14 +208,21 @@ export default function SearchExperiences() {
         // Amadeus can work with city names directly
       }
       
+      // Use location_name as the location if available, otherwise fall back
+      const displayName = destination.location_name || destination.location;
+      
+      console.log('[SearchExperiences] Setting search params with displayName:', displayName);
+      
       setSearchParams({
         ...searchParams,
         destination_id: destId,
-        location: destination.location,
-        location_display: destination.location_name || destination.location,
+        location: displayName, // Use display name, not the code
+        location_display: displayName,
         location_coordinates: coordinates,
         date: destination.arrival_date
       });
+      
+      console.log('[SearchExperiences] Search params updated');
     }
   };
 
@@ -469,54 +477,9 @@ Return 5-8 diverse and highly-rated options if available.`;
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-gray-700">Search Method</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant={!useAmadeus ? "default" : "outline"}
-                      onClick={() => setUseAmadeus(false)}
-                      className="w-full"
-                    >
-                      🔍 Search
-                    </Button>
-                    <div className="relative">
-                      <Button
-                        type="button"
-                        variant={useAmadeus && canUseProSearch ? "default" : "outline"}
-                        onClick={() => setUseAmadeus(true)}
-                        disabled={!canUseProSearch}
-                        className="w-full"
-                      >
-                        ✨ Pro Search
-                      </Button>
-                      {!hasProAccess && (
-                        <Badge className="absolute -top-2 -right-2 bg-green-600 text-white text-[10px] px-1.5 py-0.5 rounded-full pointer-events-none">
-                          Pro
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  {useAmadeus && !hasProAccess && hasCredits && (
-                    <p className="text-xs text-amber-600">
-                      You have {user.credits.pro_searches_remaining} free Pro searches left.
-                    </p>
-                  )}
-                  {useAmadeus && !hasProAccess && !hasCredits && (
-                    <p className="text-xs text-amber-600">
-                      Upgrade to Pro for real-time activities from Amadeus
-                    </p>
-                  )}
-                  {user?.pro_subscription?.status === 'trial' && (
-                    <p className="text-xs text-green-600">
-                      🎉 You're on a free trial! Amadeus Pro is included.
-                    </p>
-                  )}
-                </div>
-
                 <Button
                   onClick={handleSearch}
-                  disabled={!searchParams.location || !searchParams.date || isSearching || (useAmadeus && !canUseProSearch)}
+                  disabled={!searchParams.location || !searchParams.date || isSearching}
                   className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-lg"
                 >
                   {isSearching ? (
@@ -527,28 +490,10 @@ Return 5-8 diverse and highly-rated options if available.`;
                   ) : (
                     <>
                       <Search className="w-4 h-4 mr-2" />
-                      Search
-                      {useAmadeus && !hasProAccess && hasCredits && (
-                        <Badge className="ml-2 bg-white/20">
-                          {user.credits.pro_searches_remaining} left
-                        </Badge>
-                      )}
+                      Search Experiences
                     </>
                   )}
                 </Button>
-
-                {useAmadeus && !canUseProSearch && (
-                  <div className="text-center mt-4">
-                    <p className="text-xs text-amber-600 mb-2">
-                      You've used all your free Pro searches! 🎉
-                    </p>
-                    <Link to={createPageUrl("ProUpgrade")}>
-                      <Button size="sm" className="w-full bg-gradient-to-r from-blue-600 to-purple-600">
-                        Get 50% OFF Pro
-                      </Button>
-                    </Link>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>

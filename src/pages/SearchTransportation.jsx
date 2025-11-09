@@ -248,12 +248,14 @@ export default function SearchTransportation() {
   const handleDestinationChange = (destId) => {
     const destination = destinations.find(d => d.id === destId);
     if (destination) {
-      const displayName = destination.location_name || destination.location;
+      // Check if location looks like a code (long string or place_id pattern)
+      const isCode = destination.location && (destination.location.length > 15 || destination.location.startsWith('ChIJ'));
+      const displayName = destination.location_name || (isCode ? `Destination ${destination.order || ''}` : destination.location) || `Destination ${destination.order || ''}`;
       const iataCode = extractIataCode(displayName);
       
       setSearchParams(prev => ({
         ...prev,
-        to_location: destination.location,
+        to_location: displayName,
         to_location_code: iataCode,
         to_location_display: displayName,
         departure_date: destination.arrival_date
@@ -639,11 +641,17 @@ Return 5-8 car rental options if available.`;
                         <SelectValue placeholder="Select a destination" />
                       </SelectTrigger>
                       <SelectContent>
-                        {destinations.map((dest) => (
-                          <SelectItem key={dest.id} value={dest.id}>
-                            {dest.location_name || dest.location}
-                          </SelectItem>
-                        ))}
+                        {destinations.map((dest) => {
+                          // Check if location looks like a code (long string or place_id pattern)
+                          const isCode = dest.location && (dest.location.length > 15 || dest.location.startsWith('ChIJ'));
+                          const displayText = dest.location_name || (isCode ? `Destination ${dest.order || ''}` : dest.location) || `Destination ${dest.order || ''}`;
+                          
+                          return (
+                            <SelectItem key={dest.id} value={dest.id}>
+                              {displayText}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -739,33 +747,13 @@ Return 5-8 car rental options if available.`;
                                 setSearchParams(prev => ({ ...prev, type: 'flight' }));
                             }
                         }}
-                        disabled={!canUseProSearch}
-                        className="w-full"
+                        disabled={true}
+                        className="w-full opacity-50 cursor-not-allowed"
                       >
-                        ✨ Pro Search
+                        ✨ Pro Search (Coming Soon)
                       </Button>
-                      {!hasProAccess && (
-                        <Badge className="absolute -top-2 -right-2 bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded-full pointer-events-none">
-                          Pro
-                        </Badge>
-                      )}
                     </div>
                   </div>
-                  {useAmadeus && !hasProAccess && hasCredits && (
-                    <p className="text-xs text-amber-600">
-                      You have {user.credits.pro_searches_remaining} free Pro searches left.
-                    </p>
-                  )}
-                  {useAmadeus && !hasProAccess && !hasCredits && (
-                    <p className="text-xs text-amber-600">
-                      Upgrade to Pro for real-time flight data from Amadeus.
-                    </p>
-                  )}
-                  {proStatus === 'trial' && (
-                    <p className="text-xs text-blue-600">
-                      🎉 You're on a free trial! Amadeus Pro is included.
-                    </p>
-                  )}
                 </div>
 
                 {/* Search button and error message */}

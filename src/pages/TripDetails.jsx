@@ -1888,7 +1888,7 @@ Make realistic suggestions based on actual available services. Consider travel t
                             className="border-purple-200 text-purple-700 hover:bg-purple-50"
                           >
                             <Search className="w-4 h-4 mr-2" />
-                            Search Hotels & Airbnbs
+                            Search Hotels
                           </Button>
                         </div>
                       )}
