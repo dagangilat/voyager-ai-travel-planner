@@ -101,16 +101,17 @@ export const deleteDocument = async (collectionName, id) => {
 // List all documents in a collection with optional ordering
 export const listDocuments = async (collectionName, orderByField = null) => {
   try {
-    let q = collection(db, collectionName);
+    const constraints = [];
     
     if (orderByField) {
       // Handle descending order (prefix with -)
       const isDescending = orderByField.startsWith('-');
       const field = isDescending ? orderByField.substring(1) : orderByField;
       const direction = isDescending ? 'desc' : 'asc';
-      q = query(q, orderBy(field, direction));
+      constraints.push(orderBy(field, direction));
     }
     
+    const q = query(collection(db, collectionName), ...constraints);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
@@ -122,11 +123,11 @@ export const listDocuments = async (collectionName, orderByField = null) => {
 // Filter documents with where clauses
 export const filterDocuments = async (collectionName, filters = {}, orderByField = null) => {
   try {
-    let q = collection(db, collectionName);
+    const constraints = [];
     
     // Apply filters
     Object.entries(filters).forEach(([field, value]) => {
-      q = query(q, where(field, '==', value));
+      constraints.push(where(field, '==', value));
     });
     
     // Apply ordering
@@ -134,9 +135,10 @@ export const filterDocuments = async (collectionName, filters = {}, orderByField
       const isDescending = orderByField.startsWith('-');
       const field = isDescending ? orderByField.substring(1) : orderByField;
       const direction = isDescending ? 'desc' : 'asc';
-      q = query(q, orderBy(field, direction));
+      constraints.push(orderBy(field, direction));
     }
     
+    const q = query(collection(db, collectionName), ...constraints);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {

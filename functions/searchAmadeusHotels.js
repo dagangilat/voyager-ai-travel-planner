@@ -3,7 +3,8 @@ const fetch = require('node-fetch');
 require('dotenv').config();
 
 const AMADEUS_TOKEN_URL = 'https://test.api.amadeus.com/v1/security/oauth2/token';
-const AMADEUS_API_URL = 'https://test.api.amadeus.com/v2';
+const AMADEUS_API_V1 = 'https://test.api.amadeus.com/v1';
+const AMADEUS_API_V3 = 'https://test.api.amadeus.com/v3';
 
 function getAmadeusCredentials() {
   const cfg = functions.config?.() || {};
@@ -44,7 +45,7 @@ exports.searchAmadeusHotels = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const { cityCode, checkInDate, checkOutDate, adults, radius, ratings, priceRange } = req.query;
+  const { cityCode, checkInDate, checkOutDate, adults, radius, ratings } = req.query;
   if (!cityCode || !checkInDate || !checkOutDate) {
     res.status(400).json({ error: 'Missing required parameters' });
     return;
@@ -52,27 +53,63 @@ exports.searchAmadeusHotels = functions.https.onRequest(async (req, res) => {
 
   try {
     const token = await getAmadeusToken();
-    const url = new URL(`${AMADEUS_API_URL}/shopping/hotel-offers`);
-    url.searchParams.append('cityCode', cityCode);
-    url.searchParams.append('checkInDate', checkInDate);
-    url.searchParams.append('checkOutDate', checkOutDate);
-    url.searchParams.append('adults', adults || '1');
-    if (radius) url.searchParams.append('radius', radius);
-    if (ratings) url.searchParams.append('ratings', ratings);
-    if (priceRange) url.searchParams.append('priceRange', priceRange);
-
-    functions.logger.info('Amadeus hotels request', { url: url.toString() });
-    const resp = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-    const text = await resp.text();
-    let data; try { data = JSON.parse(text); } catch (e) {
-      functions.logger.error('Non-JSON response from Amadeus hotels', { status: resp.status, body: text.slice(0, 500) });
-      return res.status(502).json({ error: 'Bad response from Amadeus Hotels API', status: resp.status });
+    
+    // Step 1: Get list of hotels in the city using Hotel List API
+    const hotelListUrl = new URL(`${AMADEUS_API_V1}/reference-data/locations/hotels/by-city`);
+    hotelListUrl.searchParams.append('cityCode', cityCode);
+    hotelListUrl.searchParams.append('radius', radius || '10'); // Increased from 5 to 10 km
+    hotelListUrl.searchParams.append('radiusUnit', 'KM');
+    if (ratings) hotelListUrl.searchParams.append('ratings', ratings);
+    
+    functions.logger.info('Amadeus hotel list request', { url: hotelListUrl.toString() });
+    const listResp = await fetch(hotelListUrl.toString(), { 
+      headers: { Authorization: `Bearer ${token}` } 
+    });
+    const listText = await listResp.text();
+    let listData; 
+    try { listData = JSON.parse(listText); } catch (e) {
+      functions.logger.error('Non-JSON response from Amadeus hotel list', { status: listResp.status, body: listText.slice(0, 500) });
+      return res.status(502).json({ error: 'Bad response from Amadeus Hotel List API', status: listResp.status });
     }
-    if (!resp.ok) {
-      functions.logger.error('Amadeus hotels API error', { status: resp.status, data });
-      return res.status(resp.status).json({ error: 'Failed to fetch hotel offers', details: data });
+    
+    if (!listResp.ok) {
+      functions.logger.error('Amadeus hotel list API error', { status: listResp.status, data: listData });
+      return res.status(listResp.status).json({ error: 'Failed to fetch hotel list', details: listData });
     }
-    res.status(200).json(data);
+    
+    if (!listData.data || listData.data.length === 0) {
+      functions.logger.info('No hotels found in city', { cityCode });
+      return res.status(200).json({ data: [] });
+    }
+    
+    // Get up to 50 hotel IDs to increase chances of finding available rooms
+    const hotelIds = listData.data.slice(0, 50).map(hotel => hotel.hotelId).join(',');
+    functions.logger.info('Found hotels', { count: listData.data.length, fetching: hotelIds.split(',').length });
+    
+    // Step 2: Get offers for these hotels using Hotel Search API v3
+    const offersUrl = new URL(`${AMADEUS_API_V3}/shopping/hotel-offers`);
+    offersUrl.searchParams.append('hotelIds', hotelIds);
+    offersUrl.searchParams.append('checkInDate', checkInDate);
+    offersUrl.searchParams.append('checkOutDate', checkOutDate);
+    offersUrl.searchParams.append('adults', adults || '1');
+    
+    functions.logger.info('Amadeus hotel offers request', { url: offersUrl.toString() });
+    const offersResp = await fetch(offersUrl.toString(), { 
+      headers: { Authorization: `Bearer ${token}` } 
+    });
+    const offersText = await offersResp.text();
+    let offersData;
+    try { offersData = JSON.parse(offersText); } catch (e) {
+      functions.logger.error('Non-JSON response from Amadeus hotel offers', { status: offersResp.status, body: offersText.slice(0, 500) });
+      return res.status(502).json({ error: 'Bad response from Amadeus Hotel Offers API', status: offersResp.status });
+    }
+    
+    if (!offersResp.ok) {
+      functions.logger.error('Amadeus hotel offers API error', { status: offersResp.status, data: offersData });
+      return res.status(offersResp.status).json({ error: 'Failed to fetch hotel offers', details: offersData });
+    }
+    
+    res.status(200).json(offersData);
   } catch (error) {
     functions.logger.error('Error searching hotels', error);
     res.status(500).json({ error: error.message });

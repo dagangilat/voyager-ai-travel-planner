@@ -1761,7 +1761,11 @@ Make realistic suggestions based on actual available services. Consider travel t
                               )}
                               <div className="flex items-center gap-3 mt-3">
                                 {transport.price && (
-                                  <p className="text-sm font-semibold text-gray-900">${transport.price.toFixed(2)}</p>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {typeof transport.price === 'number' 
+                                      ? `$${transport.price.toFixed(2)}` 
+                                      : transport.price}
+                                  </p>
                                 )}
                               </div>
                               {transport.status !== 'booked' && (

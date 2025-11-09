@@ -25,6 +25,23 @@ export default defineConfig(({ mode }) => {
         }
       }
     ].filter(Boolean),
+    build: {
+      rollupOptions: {
+        // Don't treat Firebase modules as external - they should be bundled
+        // But configure them to be tree-shakeable
+        output: {
+          manualChunks: {
+            'firebase': [
+              'firebase/app',
+              'firebase/auth',
+              'firebase/firestore',
+              'firebase/storage',
+              'firebase/functions'
+            ]
+          }
+        }
+      }
+    },
     server: {
       host: '0.0.0.0', // Bind to all interfaces for container access
       port: 5173,
@@ -48,7 +65,7 @@ export default defineConfig(({ mode }) => {
       extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json']
     },
     optimizeDeps: {
-      include: ['react', 'react-dom'],
+      include: ['react', 'react-dom', 'firebase/app', 'firebase/auth', 'firebase/firestore'],
       esbuildOptions: {
         loader: {
           '.js': 'jsx',

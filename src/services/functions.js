@@ -53,6 +53,39 @@ export const invokeFunction = async (functionName, data) => {
       if (data.query) params.append('query', data.query);
       if (data.type) params.append('type', data.type);
       finalUrl = `${url}?${params.toString()}`;
+    } else if (functionName === 'searchAmadeusFlights' && data) {
+      // GET request with query params for Amadeus flights
+      requestInit.method = 'GET';
+      const params = new URLSearchParams();
+      if (data.origin) params.append('originLocationCode', data.origin);
+      if (data.originLocationCode) params.append('originLocationCode', data.originLocationCode);
+      if (data.destination) params.append('destinationLocationCode', data.destination);
+      if (data.destinationLocationCode) params.append('destinationLocationCode', data.destinationLocationCode);
+      if (data.departureDate) params.append('departureDate', data.departureDate);
+      if (data.returnDate) params.append('returnDate', data.returnDate);
+      if (data.adults) params.append('adults', data.adults);
+      if (data.travelClass) params.append('travelClass', data.travelClass);
+      finalUrl = `${url}?${params.toString()}`;
+    } else if (functionName === 'searchAmadeusHotels' && data) {
+      // GET request with query params for Amadeus hotels
+      requestInit.method = 'GET';
+      const params = new URLSearchParams();
+      if (data.cityCode) params.append('cityCode', data.cityCode);
+      if (data.checkInDate) params.append('checkInDate', data.checkInDate);
+      if (data.checkOutDate) params.append('checkOutDate', data.checkOutDate);
+      if (data.adults) params.append('adults', data.adults);
+      if (data.radius) params.append('radius', data.radius);
+      if (data.ratings) params.append('ratings', data.ratings);
+      if (data.priceRange) params.append('priceRange', data.priceRange);
+      finalUrl = `${url}?${params.toString()}`;
+    } else if (functionName === 'searchAmadeusActivities' && data) {
+      // GET request with query params for Amadeus activities
+      requestInit.method = 'GET';
+      const params = new URLSearchParams();
+      if (data.latitude) params.append('latitude', data.latitude);
+      if (data.longitude) params.append('longitude', data.longitude);
+      if (data.radius) params.append('radius', data.radius);
+      finalUrl = `${url}?${params.toString()}`;
     } else if (data) {
       // POST request with JSON body
       requestInit.body = JSON.stringify(data);
@@ -62,7 +95,13 @@ export const invokeFunction = async (functionName, data) => {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Function call failed: ${response.statusText}`);
+      console.error(`Function ${functionName} error details:`, {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+        url: finalUrl
+      });
+      throw new Error(errorData.error || errorData.details?.errors?.[0]?.detail || `Function call failed: ${response.statusText}`);
     }
     
     return await response.json();

@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from "react"; // Added useEffect
+import React, { useState, useEffect } from "react";
+import AmadeusFlightCard from "@/components/trips/AmadeusFlightCard";
 import { firebaseClient } from "@/api/firebaseClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -44,13 +45,33 @@ export default function SearchTransportation() {
       navigate(createPageUrl('Dashboard'));
     }
   }, [tripId, navigate]);
+  
+  // Prevent bfcache - force reload if page is restored from cache
+  useEffect(() => {
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        console.log('[SearchTransportation] Page restored from bfcache, reloading...');
+        window.location.reload();
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+  
+  // Invalidate user cache on mount to ensure fresh data
+  useEffect(() => {
+    console.log('[SearchTransportation] Invalidating user cache on mount...');
+    queryClient.invalidateQueries({ queryKey: ['user'] });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [searchParams, setSearchParams] = useState({
     type: 'flight',
     from_location: '',
     from_location_display: '',
+    from_location_code: '', // IATA code for Amadeus
     to_location: '',
     to_location_display: '',
+    to_location_code: '', // IATA code for Amadeus
     departure_date: '',
   });
 
@@ -66,23 +87,84 @@ export default function SearchTransportation() {
   const [dialogContent, setDialogContent] = useState({ title: '', description: '' });
 
   // Fetch current user for Pro access check
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-  queryFn: () => firebaseClient.auth.me(),
-    staleTime: 5 * 60 * 1000 // 5 minutes
+  const { data: user, refetch: refetchUser, isLoading: isLoadingUser } = useQuery({
+    queryKey: ['user'],
+    queryFn: async () => {
+      const userData = await firebaseClient.auth.me();
+      console.log('[SearchTransportation] Fetched user data:', userData);
+      
+      // Initialize credits if they don't exist
+      if (!userData.credits) {
+        console.log('[SearchTransportation] Initializing credits...');
+        await firebaseClient.auth.updateMe({
+          credits: {
+            ai_generations_remaining: 3,
+            pro_searches_remaining: 10,
+            last_reset_date: null
+          }
+        });
+        // Refetch user data
+        const updatedUserData = await firebaseClient.auth.me();
+        console.log('[SearchTransportation] Credits initialized:', updatedUserData);
+        return updatedUserData;
+      }
+      return userData;
+    },
+    staleTime: Infinity,
+    refetchOnMount: true, // Always refetch on mount to get latest data
   });
+  
+  // Force refetch if user exists but credits don't
+  React.useEffect(() => {
+    if (user && !user.credits) {
+      console.log('[SearchTransportation] User missing credits, forcing refetch...');
+      refetchUser();
+    }
+  }, [user, refetchUser]);
 
   // Check if user has pro access OR has remaining credits
+  // Use useState to ensure the value triggers re-renders
+  // Initialize to true (optimistic) to prevent flash of disabled button
+  const [canUseProSearch, setCanUseProSearch] = React.useState(true);
+  
+  React.useEffect(() => {
+    console.log('[SearchTransportation] Raw user object:', user);
+    console.log('[SearchTransportation] user.credits:', user?.credits);
+    console.log('[SearchTransportation] user.credits.pro_searches_remaining:', user?.credits?.pro_searches_remaining);
+    console.log('[SearchTransportation] Type:', typeof user?.credits?.pro_searches_remaining);
+    
+    const proStatus = user?.pro_subscription?.status;
+    const hasProAccess = proStatus === 'pro' || proStatus === 'trial';
+    const creditsValue = user?.credits?.pro_searches_remaining;
+    const hasCredits = (creditsValue || 0) > 0;
+    
+    // TEMPORARY: Always set to true for debugging
+    const result = true; // was: isLoadingUser || hasProAccess || hasCredits;
+    
+    console.log('[SearchTransportation] User credit check:', {
+      userId: user?.id,
+      isLoadingUser,
+      proStatus,
+      hasProAccess,
+      creditsValue,
+      pro_searches_remaining: user?.credits?.pro_searches_remaining,
+      hasCredits,
+      calculation: `(${creditsValue} || 0) > 0 = ${hasCredits}`,
+      result_HARDCODED_TRUE: result
+    });
+    
+    setCanUseProSearch(result);
+  }, [user, isLoadingUser]);
+  
   const proStatus = user?.pro_subscription?.status;
   const hasProAccess = proStatus === 'pro' || proStatus === 'trial';
   const hasCredits = (user?.credits?.pro_searches_remaining || 0) > 0;
-  const canUseProSearch = hasProAccess || hasCredits;
 
   const { data: trip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
-      return trips[0];
+      // Use .get() to fetch by document ID directly (bypasses collection query rules)
+      return await firebaseClient.entities.Trip.get(tripId);
     },
     enabled: !!tripId
   });
@@ -98,6 +180,30 @@ export default function SearchTransportation() {
   queryFn: () => firebaseClient.entities.Transportation.filter({ trip_id: tripId }),
     enabled: !!tripId
   });
+
+  // Helper to extract IATA code from location string
+  const extractIataCode = (location) => {
+    if (!location) return '';
+    
+    // If it's already a 3-letter code, return it
+    if (/^[A-Z]{3}$/i.test(location)) {
+      return location.toUpperCase();
+    }
+    
+    // Try to extract code from brackets like "Tel Aviv, Israel [TLV]"
+    const bracketMatch = location.match(/\[([A-Z]{3})\]/i);
+    if (bracketMatch) {
+      return bracketMatch[1].toUpperCase();
+    }
+    
+    // Try to extract code from parentheses like "Amsterdam Airport Schiphol (AMS)"
+    const parenMatch = location.match(/\(([A-Z]{3})\)/i);
+    if (parenMatch) {
+      return parenMatch[1].toUpperCase();
+    }
+    
+    return '';
+  };
 
   const saveTransportationMutation = useMutation({
     mutationFn: (transportData) => {
@@ -126,7 +232,8 @@ export default function SearchTransportation() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['transportation', tripId] });
-      setSavedItems(prev => new Set([...prev, data.id]));
+      // Don't show the success dialog, just mark as saved
+      // The button will update to "Saved to Trip" state
     },
     onError: (error) => {
       setDialogContent({
@@ -182,18 +289,56 @@ export default function SearchTransportation() {
           await decrementSearchCredit();
         }
 
-        // Use Amadeus API
-  const response = await firebaseClient.functions.invoke('searchAmadeusFlights', {
-          origin: searchParams.from_location, // Assuming this will be an IATA code for Amadeus
-          destination: searchParams.to_location, // Assuming this will be an IATA code for Amadeus
-          departureDate: searchParams.departure_date,
-          adults: 1 // Hardcoding for now, as there's no UI for this
+        // Extract IATA codes from locations
+        let originCode = searchParams.from_location_code;
+        let destCode = searchParams.to_location_code;
+        
+        // Fallback: extract from display names if codes are missing
+        if (!originCode && searchParams.from_location_display) {
+          originCode = extractIataCode(searchParams.from_location_display);
+          console.log('[SearchTransportation] Extracted origin code from display:', originCode);
+        }
+        if (!destCode && searchParams.to_location_display) {
+          destCode = extractIataCode(searchParams.to_location_display);
+          console.log('[SearchTransportation] Extracted dest code from display:', destCode);
+        }
+
+        console.log('[SearchTransportation] Amadeus search codes:', {
+          from_location_code: searchParams.from_location_code,
+          to_location_code: searchParams.to_location_code,
+          from_location_display: searchParams.from_location_display,
+          to_location_display: searchParams.to_location_display,
+          originCode,
+          destCode
         });
 
-        if (response.data?.options && response.data.options.length > 0) {
-          setSearchResults(response.data.options);
-        } else {
-          setSearchError("No flights found using Amadeus. Try different dates or locations.");
+        if (!originCode || !destCode) {
+          setSearchError(`Please select airports with valid IATA codes. Current selection: ${searchParams.from_location_display || ''} → ${searchParams.to_location_display || ''}`);
+          setIsSearching(false);
+          return;
+        }
+
+        // Use Amadeus API
+        try {
+          const response = await firebaseClient.functions.invoke('searchAmadeusFlights', {
+            originLocationCode: originCode,
+            destinationLocationCode: destCode,
+            departureDate: searchParams.departure_date,
+            adults: 1
+          });
+
+          console.log('[SearchTransportation] Amadeus API response:', response);
+
+          // Amadeus returns {data: [...]} - the flight offers are in the 'data' array
+          if (response && response.data && Array.isArray(response.data) && response.data.length > 0) {
+            setSearchResults(response.data);
+          } else {
+            console.log('[SearchTransportation] No flights in response:', response);
+            setSearchError("No flights found using Amadeus. Try different dates or locations.");
+          }
+        } catch (error) {
+          console.error('[SearchTransportation] Amadeus API error:', error);
+          setSearchError(`Error searching flights: ${error.message}`);
         }
       } else {
         // Use AI search with strict type enforcement
@@ -364,6 +509,66 @@ Return 5-8 car rental options if available.`;
     });
   };
 
+  // Handler for saving Amadeus flight offers
+  const handleSaveOption = (option) => {
+    if (!tripId) {
+      setDialogContent({
+        title: 'Error',
+        description: 'Trip ID is missing. Please go back to your trip and try again.'
+      });
+      setDialogOpen(true);
+      return;
+    }
+
+    // Check if it's an Amadeus result
+    const isAmadeusResult = option.itineraries !== undefined;
+    
+    if (isAmadeusResult) {
+      // Extract data from Amadeus flight offer
+      const itinerary = option.itineraries[0];
+      const segments = itinerary.segments || [];
+      const firstSegment = segments[0];
+      const lastSegment = segments[segments.length - 1];
+
+      const departureDateTime = new Date(firstSegment.departure.at);
+      const arrivalDateTime = new Date(lastSegment.arrival.at);
+
+      // Build a more detailed flight info string
+      const stops = segments.length - 1;
+      const stopsText = stops === 0 ? 'Direct flight' : `${stops} stop${stops > 1 ? 's' : ''}`;
+      const flightNumbers = segments.map(seg => `${seg.carrierCode}${seg.number}`).join(', ');
+      const route = segments.map(seg => 
+        `${seg.departure.iataCode} → ${seg.arrival.iataCode}`
+      ).join(' → ');
+      
+      const flightDetails = `${stopsText} • Flights: ${flightNumbers} • Route: ${route}`;
+
+      const transportData = {
+        trip_id: tripId,
+        type: 'flight',
+        from_location: searchParams.from_location || firstSegment.departure.iataCode,
+        from_location_display: searchParams.from_location_display || `${firstSegment.departure.iataCode}`,
+        to_location: searchParams.to_location || lastSegment.arrival.iataCode,
+        to_location_display: searchParams.to_location_display || `${lastSegment.arrival.iataCode}`,
+        departure_datetime: departureDateTime.toISOString(),
+        arrival_datetime: arrivalDateTime.toISOString(),
+        provider: `${firstSegment.carrierCode} (Amadeus)`,
+        price: `${option.price.currency} ${parseFloat(option.price.total).toFixed(2)}`,
+        details: flightDetails
+      };
+
+      console.log('[SearchTransportation] Saving Amadeus flight:', transportData);
+      
+      // Mark this option as saved immediately using Amadeus offer ID
+      setSavedItems(prev => new Set([...prev, option.id]));
+      
+      saveTransportationMutation.mutate(transportData);
+    } else {
+      // Fall back to regular handleSave for AI-generated results
+      handleSave(option);
+    }
+  };
+
   if (!tripId) {
     return null; // Just return null while redirecting
   }
@@ -443,9 +648,16 @@ Return 5-8 car rental options if available.`;
                 <LocationSearchInput
                   id="from_location"
                   label="From"
-                  value={searchParams.from_location}
-                  onChange={(value) => setSearchParams({ ...searchParams, from_location: value })}
-                  onDisplayChange={(display) => setSearchParams(prev => ({ ...prev, from_location_display: display }))}
+                  value={searchParams.from_location_display}
+                  onChange={(placeId, displayName, coordinates) => {
+                    const iataCode = extractIataCode(displayName);
+                    setSearchParams({ 
+                      ...searchParams,
+                      from_location: placeId,
+                      from_location_code: iataCode,
+                      from_location_display: displayName 
+                    });
+                  }}
                   placeholder="Search departure location"
                   includeAirportCodes={true}
                 />
@@ -453,9 +665,23 @@ Return 5-8 car rental options if available.`;
                 <LocationSearchInput
                   id="to_location"
                   label="To"
-                  value={searchParams.to_location}
-                  onChange={(value) => setSearchParams({ ...searchParams, to_location: value })}
-                  onDisplayChange={(display) => setSearchParams(prev => ({ ...prev, to_location_display: display }))}
+                  value={searchParams.to_location_display}
+                  onChange={(placeId, displayName, coordinates) => {
+                    console.log('[SearchTransportation] To location onChange called:', {
+                      placeId,
+                      displayName,
+                      coordinates
+                    });
+                    const iataCode = extractIataCode(displayName);
+                    console.log('[SearchTransportation] Extracted IATA code:', iataCode);
+                    setSearchParams({ 
+                      ...searchParams,
+                      to_location: placeId,
+                      to_location_code: iataCode,
+                      to_location_display: displayName 
+                    });
+                    console.log('[SearchTransportation] Updated searchParams with to_location_code:', iataCode);
+                  }}
                   placeholder="Search arrival location"
                   includeAirportCodes={true}
                 />
@@ -466,7 +692,11 @@ Return 5-8 car rental options if available.`;
                     type="date"
                     value={searchParams.departure_date}
                     onChange={(e) => setSearchParams({ ...searchParams, departure_date: e.target.value })}
-                    min={trip?.departure_date}
+                    min={(() => {
+                      const today = new Date().toISOString().split('T')[0];
+                      const tripDate = trip?.departure_date;
+                      return tripDate && tripDate > today ? tripDate : today;
+                    })()}
                     max={trip?.return_date}
                     className="border-gray-200"
                   />
@@ -475,8 +705,17 @@ Return 5-8 car rental options if available.`;
                 {/* New Search Method Selection */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold text-gray-700">Search Method</Label>
+                  
+                  {/* Debug info */}
+                  <div className="text-xs text-gray-500 mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                    DEBUG: isLoadingUser={String(isLoadingUser)}, hasCredits={String(hasCredits)}, 
+                    credits={user?.credits?.pro_searches_remaining || 0}, canUse={String(canUseProSearch)}, 
+                    disabled={String(!canUseProSearch)}
+                  </div>
+                  
                   <div className="grid grid-cols-2 gap-2">
                     <Button
+                      key={`basic-search-${canUseProSearch}`}
                       type="button"
                       variant={!useAmadeus ? "default" : "outline"}
                       onClick={() => setUseAmadeus(false)}
@@ -486,6 +725,7 @@ Return 5-8 car rental options if available.`;
                     </Button>
                     <div className="relative">
                       <Button
+                        key={`pro-search-${canUseProSearch}`}
                         type="button"
                         variant={useAmadeus && canUseProSearch ? "default" : "outline"}
                         onClick={() => {
@@ -525,6 +765,22 @@ Return 5-8 car rental options if available.`;
                 </div>
 
                 {/* Search button and error message */}
+                {/* Debug: Check why button is disabled */}
+                {console.log('[SearchTransportation] Button disabled check:', {
+                  from_location: searchParams.from_location,
+                  to_location: searchParams.to_location,
+                  departure_date: searchParams.departure_date,
+                  isSearching,
+                  useAmadeus,
+                  type: searchParams.type,
+                  canUseProSearch,
+                  disabled: !searchParams.from_location ||
+                    !searchParams.to_location ||
+                    !searchParams.departure_date ||
+                    isSearching ||
+                    (useAmadeus && searchParams.type !== 'flight') ||
+                    (useAmadeus && !canUseProSearch)
+                })}
                 <Button
                   onClick={handleSearch}
                   disabled={
@@ -606,10 +862,26 @@ Return 5-8 car rental options if available.`;
                   {searchResults.map((option, index) => {
                     const Icon = typeIcons[searchParams.type] || Plane;
 
+                    // Handle both Amadeus API results and AI-generated results
+                    const isAmadeusResult = option.itineraries !== undefined;
+                    
+                    if (isAmadeusResult) {
+                      // Render Amadeus flight offer
+                      return (
+                        <AmadeusFlightCard
+                          key={option.id || index}
+                          offer={option}
+                          onSave={() => handleSaveOption(option)}
+                          isSaved={savedItems.has(option.id)}
+                          isDisabled={saveTransportationMutation.isPending}
+                        />
+                      );
+                    }
+
                     // Calculate the full departure datetime for comparison with existing items
                     const optionDepartureDate = new Date(searchParams.departure_date);
-                    const [depHours, depMinutes] = option.departure_time.split(':');
-                    optionDepartureDate.setHours(parseInt(depHours), parseInt(depMinutes), 0, 0); // Set seconds and milliseconds to 0 for consistency
+                    const [depHours, depMinutes] = (option.departure_time || '00:00').split(':');
+                    optionDepartureDate.setHours(parseInt(depHours), parseInt(depMinutes), 0, 0);
                     const optionDepartureDateTimeISO = optionDepartureDate.toISOString();
 
                     // Check if this option (or a very similar one) is already saved in the database

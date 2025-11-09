@@ -43,8 +43,8 @@ export default function EditTrip() {
   const { data: trip, isLoading: loadingTrip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
-      return trips[0];
+      // Use .get() to fetch by document ID directly (bypasses collection query rules)
+      return await firebaseClient.entities.Trip.get(tripId);
     },
     enabled: !!tripId
   });

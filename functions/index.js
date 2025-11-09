@@ -2,6 +2,7 @@
 exports.addDestinationToTrip = require('./addDestinationToTrip').addDestinationToTrip;
 exports.createTripWithDestinations = require('./createTripWithDestinations').createTripWithDestinations;
 exports.findBookingUrl = require('./findBookingUrl').findBookingUrl;
+exports.geocodeLocation = require('./geocodeLocation').geocodeLocation;
 exports.getMyTrips = require('./getMyTrips').getMyTrips;
 exports.invokeLLM = require('./invokeLLM').invokeLLM;
 exports.makeReservation = require('./makeReservation').makeReservation;

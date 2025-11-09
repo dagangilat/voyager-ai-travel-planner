@@ -111,6 +111,7 @@ export default function LocationSearchInput({
     // The suggestion.name is already in the format "City, Country [CODE]"
     const displayName = suggestion.name;
     const code = suggestion.code;
+    const location = suggestion.location;
     
     justSelected.current = true;
     setSearchQuery(displayName);
@@ -120,8 +121,8 @@ export default function LocationSearchInput({
       onDisplayChange(displayName);
     }
     
-    // Pass both code and display name to parent
-    onChange(code, displayName);
+    // Pass code, display name, and location to parent
+    onChange(code, displayName, location);
     
     setShowSuggestions(false);
     setSelectedIndex(-1);

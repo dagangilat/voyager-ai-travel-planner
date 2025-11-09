@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -40,11 +40,18 @@ export default function SearchExperiences() {
       navigate(createPageUrl('Dashboard'));
     }
   }, [tripId, navigate]);
+  
+  // Invalidate user cache on mount to ensure fresh data
+  React.useEffect(() => {
+    console.log('[SearchExperiences] Invalidating user cache on mount...');
+    queryClient.invalidateQueries({ queryKey: ['user'] });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [searchParams, setSearchParams] = useState({
     destination_id: '',
     location: '',
     location_display: '',
+    location_coordinates: null,
     date: '',
     category: 'city_tour'
   });
@@ -63,17 +70,43 @@ export default function SearchExperiences() {
   const { data: trip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
-      return trips[0];
+      // Use .get() to fetch by document ID directly (bypasses collection query rules)
+      return await firebaseClient.entities.Trip.get(tripId);
     },
     enabled: !!tripId
   });
 
   const { data: destinations = [] } = useQuery({
     queryKey: ['destinations', tripId],
-  queryFn: () => firebaseClient.entities.Destination.filter({ trip_id: tripId }, 'order'),
+    queryFn: async () => {
+      const dests = await firebaseClient.entities.Destination.filter({ trip_id: tripId }, 'order');
+      console.log('[SearchExperiences] Loaded destinations:', dests);
+      return dests;
+    },
     enabled: !!tripId
   });
+
+  // Fetch places to get display names for destinations
+  const { data: places = [] } = useQuery({
+    queryKey: ['places'],
+    queryFn: () => firebaseClient.entities.Place.filter({}),
+    enabled: destinations.length > 0
+  });
+
+  // Enrich destinations with place display names and coordinates
+  const enrichedDestinations = useMemo(() => {
+    return destinations.map(dest => {
+      // Try to find matching place for display name
+      const place = places.find(p => p.id === dest.location);
+      const displayName = dest.location_name || place?.name || dest.location;
+      
+      return {
+        ...dest,
+        location_name: displayName,
+        location_coordinates: dest.location_coordinates || place?.location || null
+      };
+    });
+  }, [destinations, places]);
 
   const { data: existingExperiences = [] } = useQuery({
     queryKey: ['experiences', tripId],
@@ -82,16 +115,47 @@ export default function SearchExperiences() {
   });
 
   // Fetch current user for Pro access status
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-  queryFn: () => firebaseClient.auth.me(),
+  const { data: user, refetch: refetchUser, isLoading: isLoadingUser } = useQuery({
+    queryKey: ['user'],
+    queryFn: async () => {
+      const userData = await firebaseClient.auth.me();
+      console.log('[SearchExperiences] Fetched user data:', userData);
+      
+      // Initialize credits if they don't exist
+      if (!userData.credits) {
+        console.log('[SearchExperiences] Initializing credits...');
+        await firebaseClient.auth.updateMe({
+          credits: {
+            ai_generations_remaining: 3,
+            pro_searches_remaining: 10,
+            last_reset_date: null
+          }
+        });
+        // Refetch user data
+        const updatedUserData = await firebaseClient.auth.me();
+        console.log('[SearchExperiences] Credits initialized:', updatedUserData);
+        return updatedUserData;
+      }
+      return userData;
+    },
+    staleTime: Infinity,
+    refetchOnMount: true, // Always refetch on mount to get latest data
   });
+  
+  // Force refetch if user exists but credits don't
+  React.useEffect(() => {
+    if (user && !user.credits) {
+      console.log('[SearchExperiences] User missing credits, forcing refetch...');
+      refetchUser();
+    }
+  }, [user, refetchUser]);
 
   // Check if user has pro access OR has remaining credits
   const proStatus = user?.pro_subscription?.status;
   const hasProAccess = proStatus === 'pro' || proStatus === 'trial';
   const hasCredits = (user?.credits?.pro_searches_remaining || 0) > 0;
-  const canUseProSearch = hasProAccess || hasCredits;
+  // Don't disable buttons while loading - give benefit of doubt
+  const canUseProSearch = isLoadingUser || hasProAccess || hasCredits;
 
 
   const saveExperienceMutation = useMutation({
@@ -123,20 +187,73 @@ export default function SearchExperiences() {
     }
   });
 
-  const handleDestinationChange = (destId) => {
-    const destination = destinations.find(d => d.id === destId);
+  const handleDestinationChange = async (destId) => {
+    const destination = enrichedDestinations.find(d => d.id === destId);
     if (destination) {
+      console.log('[SearchExperiences] Selected destination:', {
+        id: destId,
+        location: destination.location,
+        location_name: destination.location_name,
+        location_coordinates: destination.location_coordinates,
+      });
+      
+      // If coordinates aren't available, try to get from place or geocode
+      let coordinates = destination.location_coordinates;
+      if (!coordinates?.lat && destination.location_name) {
+        console.log('[SearchExperiences] Need coordinates for:', destination.location_name);
+        
+        // First try to get from place
+        const place = places.find(p => p.id === destination.location);
+        if (place?.location?.lat) {
+          coordinates = place.location;
+          console.log('[SearchExperiences] Got coordinates from place:', coordinates);
+        } else {
+          // Try geocoding as fallback
+          try {
+            // Extract city name from location_name (e.g., "Rome, Italy [FCO]" -> "Rome, Italy")
+            const cityName = destination.location_name.replace(/\s*\[.*?\]\s*$/, '').trim();
+            
+            console.log('[SearchExperiences] Geocoding location:', cityName);
+            const geocodeResponse = await firebaseClient.functions.invoke('geocodeLocation', {
+              address: cityName
+            });
+            
+            if (geocodeResponse?.location) {
+              coordinates = geocodeResponse.location;
+              console.log('[SearchExperiences] Geocoded coordinates:', coordinates);
+              
+              // Update the destination with coordinates for future use
+              await firebaseClient.entities.Destination.update(destId, {
+                location_coordinates: coordinates
+              });
+            }
+          } catch (error) {
+            console.error('[SearchExperiences] Geocoding error:', error);
+            // If geocoding fails, try to extract coordinates from the location string
+            // This is a fallback for places that don't have coordinates
+          }
+        }
+      }
+      
       setSearchParams({
         ...searchParams,
         destination_id: destId,
         location: destination.location,
-        location_display: destination.location_name || destination.location,
+        location_display: destination.location_name,
+        location_coordinates: coordinates,
         date: destination.arrival_date
       });
     }
   };
 
   const handleSearch = async () => {
+    console.log('[SearchExperiences] Starting search with params:', {
+      ...searchParams,
+      useAmadeus,
+      canUseProSearch,
+      hasCoordinates: !!searchParams.location_coordinates?.lat
+    });
+    
     setIsSearching(true);
     setSearchResults([]);
     setDialogTitle('');
@@ -147,6 +264,18 @@ export default function SearchExperiences() {
       let result;
 
       if (useAmadeus && canUseProSearch) {
+        console.log('[SearchExperiences] Using Amadeus API');
+        
+        // Check for coordinates before trying Amadeus
+        if (!searchParams.location_coordinates?.lat || !searchParams.location_coordinates?.lng) {
+          console.error('[SearchExperiences] Missing coordinates for Amadeus:', searchParams.location_coordinates);
+          setDialogTitle("Coordinates Required");
+          setDialogDescription("Amadeus search requires location coordinates. Please select a different destination or use regular search.");
+          setIsDialogOpen(true);
+          setIsSearching(false);
+          return;
+        }
+        
         // Decrement credit for free users
         if (!hasProAccess && hasCredits) {
           const remaining = user?.credits?.pro_searches_remaining || 0;
@@ -156,39 +285,49 @@ export default function SearchExperiences() {
               pro_searches_remaining: remaining - 1
             }
           });
-          queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+          queryClient.invalidateQueries({ queryKey: ['user'] });
         }
 
-        // Amadeus search logic (mock for now - can be enhanced with actual Amadeus activities API)
-        console.log("Searching with Amadeus Pro...");
-        result = {
-          options: [
-            {
-              name: "Premium City Walking Tour",
+        // Use real Amadeus Activities API
+        console.log('[SearchExperiences] Calling Amadeus API with:', {
+          latitude: searchParams.location_coordinates.lat,
+          longitude: searchParams.location_coordinates.lng,
+          radius: 20
+        });
+
+        const response = await firebaseClient.functions.invoke('searchAmadeusActivities', {
+          latitude: searchParams.location_coordinates.lat,
+          longitude: searchParams.location_coordinates.lng,
+          radius: 20 // 20km radius
+        });
+
+        console.log('[SearchExperiences] Amadeus API response:', response);
+
+        if (response.data && response.data.length > 0) {
+          // Transform Amadeus response to our format
+          result = {
+            options: response.data.map(activity => ({
+              name: activity.name,
               category: searchParams.category,
-              provider: "Amadeus Tours",
-              duration: "4 hours",
-              price: 75,
-              rating: 9.2,
-              details: "Explore the city's hidden gems with a professional guide. Real-time availability via Amadeus.",
-              location_display: searchParams.location_display
-            },
-            {
-              name: "Gourmet Food & Wine Experience",
-              category: "food_wine",
-              provider: "Local Foodies",
-              duration: "3 hours",
-              price: 120,
-              rating: 8.8,
-              details: "Taste the best local cuisine. Book instantly via Amadeus.",
-              location_display: searchParams.location_display
-            }
-          ]
-        };
-        await new Promise(resolve => setTimeout(resolve, 1500));
+              provider: "Amadeus",
+              duration: activity.duration || "Varies",
+              price: activity.price?.amount || 0,
+              rating: activity.rating || 0,
+              details: activity.shortDescription || activity.description || "",
+              location_display: searchParams.location_display,
+              booking_link: activity.bookingLink
+            }))
+          };
+        } else {
+          setDialogTitle("No Results");
+          setDialogDescription("No activities found using Amadeus. Try different location or use regular search.");
+          setIsDialogOpen(true);
+          setIsSearching(false);
+          return;
+        }
 
       } else {
-        // Use AI search
+        // Use AI search - doesn't require coordinates
         const categoryText = searchParams.category.replace('_', ' ');
 
         const prompt = `Find ${categoryText} experiences and activities in ${searchParams.location_display || searchParams.location} for ${searchParams.date}.
@@ -300,12 +439,14 @@ Return 5-8 diverse and highly-rated options if available.`;
                   <Label className="text-sm font-semibold text-gray-700">Select Destination</Label>
                   <Select value={searchParams.destination_id} onValueChange={handleDestinationChange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select destination" />
+                      <SelectValue placeholder="Select destination">
+                        {searchParams.destination_id && searchParams.location_display}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {destinations.map((dest) => (
+                      {enrichedDestinations.map((dest) => (
                         <SelectItem key={dest.id} value={dest.id}>
-                          {dest.location_name || dest.location}
+                          {dest.location_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -316,7 +457,12 @@ Return 5-8 diverse and highly-rated options if available.`;
                   id="location"
                   label="Or Search Location Manually"
                   value={searchParams.location}
-                  onChange={(value, displayName) => setSearchParams({ ...searchParams, location: value, location_display: displayName || value })}
+                  onChange={(value, displayName, coordinates) => setSearchParams({ 
+                    ...searchParams, 
+                    location: value, 
+                    location_display: displayName || value,
+                    location_coordinates: coordinates 
+                  })}
                   placeholder="Search city or area"
                   includeAirportCodes={false}
                 />

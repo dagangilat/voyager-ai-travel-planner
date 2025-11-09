@@ -13,6 +13,7 @@ import { createPageUrl } from "@/utils";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import LocationSearchInput from "../components/common/LocationSearchInput";
+import AmadeusHotelCard from "@/components/trips/AmadeusHotelCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
@@ -37,6 +38,12 @@ export default function SearchLodging() {
       navigate(createPageUrl('Dashboard'));
     }
   }, [tripId, navigate]);
+  
+  // Invalidate user cache on mount to ensure fresh data
+  useEffect(() => {
+    console.log('[SearchLodging] Invalidating user cache on mount...');
+    queryClient.invalidateQueries({ queryKey: ['user'] });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [searchParams, setSearchParams] = useState({
     destination_id: '',
@@ -67,23 +74,53 @@ export default function SearchLodging() {
     setShowErrorDialog(true);
   };
 
-  const { data: user } = useQuery({
+  const { data: user, refetch: refetchUser, isLoading: isLoadingUser } = useQuery({
     queryKey: ['user'],
-  queryFn: () => firebaseClient.auth.me(),
+    queryFn: async () => {
+      const userData = await firebaseClient.auth.me();
+      console.log('[SearchLodging] Fetched user data:', userData);
+      
+      // Initialize credits if they don't exist
+      if (!userData.credits) {
+        console.log('[SearchLodging] Initializing credits...');
+        await firebaseClient.auth.updateMe({
+          credits: {
+            ai_generations_remaining: 3,
+            pro_searches_remaining: 10,
+            last_reset_date: null
+          }
+        });
+        // Refetch user data
+        const updatedUserData = await firebaseClient.auth.me();
+        console.log('[SearchLodging] Credits initialized:', updatedUserData);
+        return updatedUserData;
+      }
+      return userData;
+    },
     staleTime: Infinity,
+    refetchOnMount: true, // Always refetch on mount to get latest data
   });
+  
+  // Force refetch if user exists but credits don't
+  React.useEffect(() => {
+    if (user && !user.credits) {
+      console.log('[SearchLodging] User missing credits, forcing refetch...');
+      refetchUser();
+    }
+  }, [user, refetchUser]);
 
   // Check if user has pro access OR has remaining credits
   const proStatus = user?.pro_subscription?.status;
   const hasProAccess = proStatus === 'pro' || proStatus === 'trial';
   const hasCredits = (user?.credits?.pro_searches_remaining || 0) > 0;
-  const canUseProSearch = hasProAccess || hasCredits;
+  // Don't disable buttons while loading - give benefit of doubt
+  const canUseProSearch = isLoadingUser || hasProAccess || hasCredits;
 
   const { data: trip } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: async () => {
-  const trips = await firebaseClient.entities.Trip.filter({ id: tripId });
-      return trips[0];
+      // Use .get() to fetch by document ID directly (bypasses collection query rules)
+      return await firebaseClient.entities.Trip.get(tripId);
     },
     enabled: !!tripId
   });
@@ -99,6 +136,98 @@ export default function SearchLodging() {
   queryFn: () => firebaseClient.entities.Lodging.filter({ trip_id: tripId }),
     enabled: !!tripId
   });
+
+  // Helper to extract IATA code from location string
+  const extractIataCode = (location) => {
+    if (!location) return '';
+    
+    // If it's already a 3-letter code, return it
+    if (/^[A-Z]{3}$/i.test(location)) {
+      return location.toUpperCase();
+    }
+    
+    // Try to extract code from brackets like "Tel Aviv, Israel [TLV]"
+    const bracketMatch = location.match(/\[([A-Z]{3})\]/i);
+    if (bracketMatch) {
+      return bracketMatch[1].toUpperCase();
+    }
+    
+    // Try to extract code from parentheses like "Amsterdam Airport Schiphol (AMS)"
+    const parenMatch = location.match(/\(([A-Z]{3})\)/i);
+    if (parenMatch) {
+      return parenMatch[1].toUpperCase();
+    }
+    
+    return '';
+  };
+
+  // Get city code for hotels - tries to extract city name and map to IATA city code
+  const getCityCodeForHotels = (location) => {
+    if (!location) return '';
+    
+    // Map of common airport codes to their city codes for hotels
+    const airportToCityMap = {
+      'FCO': 'ROM', // Rome
+      'ORY': 'PAR', // Paris Orly
+      'CDG': 'PAR', // Paris CDG
+      'LGW': 'LON', // London Gatwick
+      'LHR': 'LON', // London Heathrow
+      'STN': 'LON', // London Stansted
+      'LTN': 'LON', // London Luton
+      'JFK': 'NYC', // New York JFK
+      'LGA': 'NYC', // New York LaGuardia
+      'EWR': 'NYC', // Newark
+      'LAX': 'LAX', // Los Angeles (same)
+      'SFO': 'SFO', // San Francisco (same)
+      'ORD': 'CHI', // Chicago O'Hare
+      'MDW': 'CHI', // Chicago Midway
+      'DCA': 'WAS', // Washington National
+      'IAD': 'WAS', // Washington Dulles
+      'NRT': 'TYO', // Tokyo Narita
+      'HND': 'TYO', // Tokyo Haneda
+      'BCN': 'BCN', // Barcelona (same)
+      'MAD': 'MAD', // Madrid (same)
+      'AMS': 'AMS', // Amsterdam (same)
+      'BER': 'BER', // Berlin (same)
+      'MUC': 'MUC', // Munich (same)
+      'FRA': 'FRA', // Frankfurt (same)
+      'DXB': 'DXB', // Dubai (same)
+      'SIN': 'SIN', // Singapore (same)
+      'HKG': 'HKG', // Hong Kong (same)
+      'BKK': 'BKK', // Bangkok (same)
+      'IST': 'IST', // Istanbul (same)
+      'TLV': 'TLV', // Tel Aviv (same)
+      'MIA': 'MIA', // Miami (same)
+      'LAS': 'LAS', // Las Vegas (same)
+      'SEA': 'SEA', // Seattle (same)
+      'BOS': 'BOS', // Boston (same)
+      'DEN': 'DEN', // Denver (same)
+      'ATL': 'ATL', // Atlanta (same)
+      'DFW': 'DFW', // Dallas (same)
+      'IAH': 'HOU', // Houston IAH -> HOU
+      'HOU': 'HOU', // Houston Hobby
+      'PHX': 'PHX', // Phoenix (same)
+      'MCO': 'ORL', // Orlando -> ORL
+      'YYZ': 'YTO', // Toronto Pearson -> YTO
+      'YUL': 'YMQ', // Montreal -> YMQ
+      'MEX': 'MEX', // Mexico City (same)
+      'GRU': 'SAO', // São Paulo -> SAO
+      'GIG': 'RIO', // Rio de Janeiro -> RIO
+      'SYD': 'SYD', // Sydney (same)
+      'MEL': 'MEL', // Melbourne (same)
+    };
+    
+    const airportCode = extractIataCode(location);
+    
+    // Try to map airport code to city code
+    if (airportCode && airportToCityMap[airportCode]) {
+      console.log(`[SearchLodging] Mapped airport ${airportCode} to city ${airportToCityMap[airportCode]}`);
+      return airportToCityMap[airportCode];
+    }
+    
+    // If no mapping found, return the original code (might already be a city code)
+    return airportCode;
+  };
 
   const saveLodgingMutation = useMutation({
     mutationFn: (lodgingData) => {
@@ -164,27 +293,31 @@ export default function SearchLodging() {
           queryClient.invalidateQueries({ queryKey: ['user'] });
         }
 
-        // Use Amadeus API
-        const cityCode = searchParams.location && searchParams.location.length >= 3
-          ? searchParams.location.substring(0, 3).toUpperCase()
-          : null;
+        // Extract city code for hotels (not airport code)
+        const cityCode = getCityCodeForHotels(searchParams.location_display || searchParams.location);
+
+        console.log('[SearchLodging] Searching hotels with city code:', cityCode, 'from location:', searchParams.location_display);
 
         if (!cityCode) {
-          setSearchError("Please provide a valid location for Amadeus search (e.g., city name).");
+          setSearchError(`Please select a location with a valid city/airport code. Current selection: ${searchParams.location_display || searchParams.location}`);
           setIsSearching(false);
           return;
         }
 
-  const response = await firebaseClient.functions.invoke('searchAmadeusHotels', {
+        const response = await firebaseClient.functions.invoke('searchAmadeusHotels', {
           cityCode: cityCode,
           checkInDate: searchParams.check_in_date,
           checkOutDate: searchParams.check_out_date,
-          adults: searchParams.guests || 2 // Use guests from searchParams, default to 2
+          adults: searchParams.guests || 2
         });
 
-        if (response.data && response.data.options && response.data.options.length > 0) {
-          setSearchResults(response.data.options);
+        console.log('[SearchLodging] Amadeus API response:', response);
+
+        // Amadeus returns {data: [...]} - the hotel offers are in the 'data' array
+        if (response && response.data && Array.isArray(response.data) && response.data.length > 0) {
+          setSearchResults(response.data);
         } else {
+          console.log('[SearchLodging] No hotels in response:', response);
           setSearchError("No hotels found using Amadeus. Try different dates, location, or the regular search.");
         }
       } else {
@@ -275,6 +408,57 @@ Return 5-8 options with varied price points if available.`;
     });
   };
 
+  // Handler for saving Amadeus hotel offers
+  const handleSaveOption = (option) => {
+    const isAmadeusResult = option.hotel !== undefined || option.hotelId !== undefined;
+    
+    if (isAmadeusResult) {
+      // Extract data from Amadeus hotel offer
+      const hotel = option.hotel || {};
+      const hotelName = hotel.name || option.name || 'Hotel';
+      const hotelId = hotel.hotelId || option.hotelId;
+      const cityCode = hotel.cityCode || option.cityCode;
+      
+      const offers = option.offers || [];
+      const firstOffer = offers[0] || {};
+      const price = firstOffer.price || {};
+      const room = firstOffer.room || {};
+      
+      const nights = Math.ceil((new Date(searchParams.check_out_date) - new Date(searchParams.check_in_date)) / (1000 * 60 * 60 * 24));
+      const pricePerNight = price.total ? parseFloat(price.total) / nights : 0;
+      const totalPrice = price.total ? parseFloat(price.total) : 0;
+      
+      const roomType = room.typeEstimated?.category || room.type || 'Standard Room';
+      const bedType = room.typeEstimated?.bedType || '';
+      
+      const lodgingData = {
+        destination_id: searchParams.destination_id,
+        name: hotelName,
+        type: 'hotel',
+        location: searchParams.location,
+        location_display: searchParams.location_display || cityCode,
+        check_in_date: searchParams.check_in_date,
+        check_out_date: searchParams.check_out_date,
+        price_per_night: pricePerNight,
+        total_price: totalPrice,
+        rating: 0,
+        amenities: [],
+        details: `${roomType}${bedType ? ' - ' + bedType : ''} • Amadeus Hotel ID: ${hotelId} • ${price.currency} ${totalPrice.toFixed(2)}`,
+        guests: searchParams.guests
+      };
+
+      console.log('[SearchLodging] Saving Amadeus hotel:', lodgingData);
+      
+      // Mark as saved immediately
+      setSavedItems(prev => new Set([...prev, hotelId]));
+      
+      saveLodgingMutation.mutate(lodgingData);
+    } else {
+      // Fall back to regular handleSave for AI-generated results
+      handleSave(option);
+    }
+  };
+
   // Render nothing if tripId is missing and we are redirecting
   if (!tripId) {
     return null;
@@ -325,7 +509,7 @@ Return 5-8 options with varied price points if available.`;
                   id="location"
                   label="Or Search Location Manually"
                   value={searchParams.location_display || searchParams.location}
-                  onChange={(placeId, displayName) => setSearchParams({ 
+                  onChange={(placeId, displayName, coordinates) => setSearchParams({ 
                     ...searchParams, 
                     location: placeId,
                     location_display: displayName 
@@ -507,6 +691,30 @@ Return 5-8 options with varied price points if available.`;
 
                 <div className="space-y-4">
                   {searchResults.map((option, index) => {
+                    // Check if this is an Amadeus hotel result
+                    const isAmadeusResult = option.hotel !== undefined || option.hotelId !== undefined;
+                    
+                    if (isAmadeusResult) {
+                      // Render Amadeus hotel card
+                      const hotelId = option.hotel?.hotelId || option.hotelId;
+                      return (
+                        <motion.div
+                          key={hotelId || index}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                        >
+                          <AmadeusHotelCard
+                            offer={option}
+                            onSave={() => handleSaveOption(option)}
+                            isSaved={savedItems.has(hotelId)}
+                            isDisabled={saveLodgingMutation.isPending}
+                          />
+                        </motion.div>
+                      );
+                    }
+
+                    // AI-generated result - existing rendering logic
                     const isSaved = existingLodging.some(l =>
                       l.name === option.name &&
                       (l.location === option.location || l.location === searchParams.location) &&

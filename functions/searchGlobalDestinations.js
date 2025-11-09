@@ -160,6 +160,17 @@ async function searchGooglePlaces(query, type) {
         const cleanName = place.name.replace(/\s*\([A-Z]{3}\)\s*|\s*\[[A-Z]{3}\]\s*/g, '').trim();
         displayName = `${cleanName} [${airportCode}]`;
       }
+      
+      return {
+        id: place.place_id,
+        place_id: place.place_id,
+        name: displayName,
+        code: airportCode,
+        formatted_address: place.formatted_address,
+        location: place.geometry.location,
+        types: place.types,
+        source: 'google'
+      };
     }
     
     return {
