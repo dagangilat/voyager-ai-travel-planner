@@ -28,7 +28,7 @@ exports.processPayment = functions.https.onRequest(async (req, res) => {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { userId, amount, price, paymentMethod } = req.body;
+  const { userId, amount, price, paymentMethod, pro_searches_add, topup_id } = req.body;
 
     // Validate input
     if (!userId || !amount || !price) {
@@ -53,7 +53,9 @@ exports.processPayment = functions.https.onRequest(async (req, res) => {
       status: 'completed',
       purchase_date: admin.firestore.FieldValue.serverTimestamp(),
       created_at: admin.firestore.FieldValue.serverTimestamp(),
-      test_mode: true
+      test_mode: true,
+      topup_id: topup_id || null,
+      pro_searches_added: pro_searches_add || 0
     };
 
     // Use a batch write for atomicity
@@ -81,7 +83,7 @@ exports.processPayment = functions.https.onRequest(async (req, res) => {
     batch.set(userRef, {
       credits: {
         ai_generations_remaining: currentCredits + credits,
-        pro_searches_remaining: currentProSearches
+        pro_searches_remaining: currentProSearches + (pro_searches_add || 0)
       },
       updated_at: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
@@ -93,8 +95,10 @@ exports.processPayment = functions.https.onRequest(async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      credits: credits,
-      newBalance: currentCredits + credits,
+      credits_added: credits,
+      pro_searches_added: pro_searches_add || 0,
+      new_ai_balance: currentCredits + credits,
+      new_pro_searches_balance: currentProSearches + (pro_searches_add || 0),
       purchaseId: purchaseRef.id
     });
 

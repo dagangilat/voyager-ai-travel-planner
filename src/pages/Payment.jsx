@@ -1,14 +1,15 @@
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Check, Loader2, ArrowLeft, CreditCard } from "lucide-react";
+import { Sparkles, Check, Loader2, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { getTopupById, formatCurrency } from "@/lib/plans";
 import {
   Dialog,
   DialogContent,
@@ -22,39 +23,47 @@ export default function Payment() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const urlParams = new URLSearchParams(window.location.search);
-  const amount = parseInt(urlParams.get('amount')) || 10;
-  const price = parseFloat(urlParams.get('price')) || 9.99;
+  const topupId = urlParams.get('topup');
+  const amountParam = parseInt(urlParams.get('amount')) || null;
+  const priceParam = parseFloat(urlParams.get('price')) || null;
+  const selectedTopup = topupId ? getTopupById(topupId) : null;
+  const amount = selectedTopup ? selectedTopup.ai_generations_add : (amountParam || 10);
+  const price = selectedTopup ? selectedTopup.price : (priceParam || 9.99);
+  const proSearchesAdd = selectedTopup ? selectedTopup.pro_searches_add : Math.round((amount || 0) * 12);
 
   const [processingMethod, setProcessingMethod] = useState(null); // 'apple_pay', 'google_pay', or null
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [applePayAvailable, setApplePayAvailable] = useState(false);
-  const [googlePayAvailable, setGooglePayAvailable] = useState(false);
+  // Google Pay availability placeholder removed (not used in simulated flow)
 
   const { data: user } = useQuery({
     queryKey: ['user'],
-  queryFn: () => firebaseClient.auth.me(),
-    staleTime: Infinity,
+    queryFn: () => firebaseClient.auth.me(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   useEffect(() => {
     // Check Apple Pay availability
-    if (window.ApplePaySession && ApplePaySession.canMakePayments()) {
+    if (window.ApplePaySession && window.ApplePaySession.canMakePayments()) {
       setApplePayAvailable(true);
-    }
-
-    // Check Google Pay availability
-    if (window.google && window.google.payments) {
-      setGooglePayAvailable(true);
     }
   }, []);
 
   const processPaymentMutation = useMutation({
     mutationFn: async (paymentData) => {
-  const response = await firebaseClient.functions.invoke('processPayment', paymentData);
-      return response.data;
+      console.log('🔍 Sending payment data to processPayment:', paymentData);
+      const response = await firebaseClient.functions.invoke('processPayment', paymentData);
+      console.log('✅ processPayment response:', response);
+      return response;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('💰 Payment success, new balances:', {
+        ai: data.new_ai_balance,
+        pro: data.new_pro_searches_balance
+      });
       queryClient.invalidateQueries({ queryKey: ['user'] });
+      // Some pages use a different cache key; invalidate both to ensure UI updates
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       queryClient.invalidateQueries({ queryKey: ['purchaseHistory'] });
       setShowSuccessDialog(true);
     },
@@ -199,12 +208,14 @@ export default function Payment() {
       userId: user.id, // user.id is the Firebase uid
       amount,
       price,
+      pro_searches_add: proSearchesAdd,
+      topup_id: topupId || undefined,
       paymentMethod: method,
       transaction_id: `${method.toUpperCase()}_${Date.now()}`,
       user_email: user.email
     };
     
-    console.log('🔍 Payment data being sent:', paymentData);
+    console.log('� Simulating payment with data:', paymentData);
     
     await processPaymentMutation.mutateAsync(paymentData);
   };
@@ -241,15 +252,15 @@ export default function Payment() {
           <CardContent className="p-6">
             <div className="flex justify-between items-center mb-4 pb-4 border-b">
               <div>
-                <p className="text-lg font-semibold text-gray-900">{amount} AI Credits</p>
-                <p className="text-sm text-gray-500">${(price / amount).toFixed(2)} per credit</p>
+                <p className="text-lg font-semibold text-gray-900">{amount} AI Credits + {proSearchesAdd} Pro Searches</p>
+                <p className="text-sm text-gray-500">{formatCurrency(price / amount)} per AI credit</p>
               </div>
               <div className="text-right">
-                <p className="text-3xl font-bold text-purple-600">${price.toFixed(2)}</p>
+                <p className="text-3xl font-bold text-purple-600">{formatCurrency(price)}</p>
               </div>
             </div>
-            {amount >= 50 && (
-              <Badge className="bg-green-100 text-green-700">Best Value - Save up to 15%</Badge>
+            {selectedTopup?.popular && (
+              <Badge className="bg-green-100 text-green-700">Most Popular</Badge>
             )}
           </CardContent>
         </Card>
@@ -258,7 +269,7 @@ export default function Payment() {
         <Card className="border-0 shadow-xl rounded-2xl mb-6">
           <CardHeader className="border-b p-6">
             <CardTitle className="text-xl font-bold">Payment Method</CardTitle>
-            <CardDescription>Select how you'd like to pay</CardDescription>
+            <CardDescription>Select how you&apos;d like to pay</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-4">
             {/* Apple Pay */}
@@ -333,7 +344,7 @@ export default function Payment() {
             </div>
             <DialogTitle className="text-2xl font-bold text-center">Payment Successful!</DialogTitle>
             <DialogDescription className="text-center text-base pt-2">
-              {amount} AI credits have been added to your account. Start generating amazing trips!
+              {amount} AI credits and {proSearchesAdd} Pro searches have been added to your account. Start generating amazing trips!
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

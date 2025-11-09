@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Check, Sparkles, Plane, Hotel, Star, Zap, Crown } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { PLANS, formatCurrency, TOPUPS } from "@/lib/plans";
 import {
   Dialog,
   DialogContent,
@@ -91,9 +92,14 @@ export default function ProUpgrade() {
     );
   }
 
-  const monthlyPrice = hasDiscount ? 4.5 : 9;
-  const yearlyPricePerMonth = hasDiscount ? 3.5 : 7;
-  const yearlyPriceTotal = yearlyPricePerMonth * 12;
+  // Pricing sourced from config (plans.json)
+  const baseMonthly = PLANS.pro_monthly.monthly_price;
+  const baseYearlyMonthlyEquivalent = PLANS.pro_yearly.monthly_price_equivalent;
+  const yearlyPriceTotal = PLANS.pro_yearly.annual_price;
+  // If discount conditions apply, reduce by 50% (config flag discount_available)
+  const discountFactor = (hasDiscount && PLANS.pro_monthly.discount_available) ? 0.5 : 1;
+  const monthlyPrice = +(baseMonthly * discountFactor).toFixed(2);
+  const yearlyPricePerMonth = +(baseYearlyMonthlyEquivalent * discountFactor).toFixed(2);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4 md:p-8">
@@ -246,20 +252,20 @@ export default function ProUpgrade() {
                 <div className="mt-4">
                   {hasDiscount && (
                     <div className="mb-2">
-                      <span className="text-2xl text-gray-400 line-through">${billingCycle === 'monthly' ? '9' : '84'}</span>
+                      <span className="text-2xl text-gray-400 line-through">{billingCycle === 'monthly' ? formatCurrency(baseMonthly) : formatCurrency(yearlyPriceTotal)}</span>
                     </div>
                   )}
                   <span className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    ${billingCycle === 'monthly' ? monthlyPrice : yearlyPriceTotal}
+                    {billingCycle === 'monthly' ? formatCurrency(monthlyPrice) : formatCurrency(yearlyPriceTotal * discountFactor)}
                   </span>
                   <span className="text-gray-500">/{billingCycle === 'monthly' ? 'month' : 'year'}</span>
                   {billingCycle === 'yearly' && (
-                    <p className="text-sm text-gray-600 mt-2">${yearlyPricePerMonth}/month billed annually</p>
+                    <p className="text-sm text-gray-600 mt-2">{formatCurrency(yearlyPricePerMonth)}/month billed annually</p>
                   )}
                 </div>
                 {isTrial && (
                   <Badge className="mt-2 bg-green-100 text-green-700">
-                    You're on a free trial!
+                    You&apos;re on a free trial!
                   </Badge>
                 )}
                 {hasDiscount && !isPro && !isTrial && (
@@ -292,29 +298,52 @@ export default function ProUpgrade() {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  onClick={() => {
-                    if (!isPro && !isTrial) {
-                      upgradeMutation.mutate();
-                    }
-                  }}
-                  disabled={isPro || isTrial || upgradeMutation.isPending}
-                  className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
-                >
-                  {(isPro || isTrial) ? (
-                    <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Current Plan
-                    </>
-                  ) : upgradeMutation.isPending ? (
-                    'Processing...'
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      {hasDiscount ? 'Get 50% OFF Now' : 'Upgrade to Pro'}
-                    </>
+                <div className="space-y-4 mt-6">
+                  <Button
+                    onClick={() => {
+                      if (!isPro && !isTrial) {
+                        upgradeMutation.mutate();
+                      }
+                    }}
+                    disabled={isPro || isTrial || upgradeMutation.isPending}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                  >
+                    {(isPro || isTrial) ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Current Plan
+                      </>
+                    ) : upgradeMutation.isPending ? (
+                      'Processing...'
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {hasDiscount ? 'Get 50% OFF Now' : 'Upgrade to Pro'}
+                      </>
+                    )}
+                  </Button>
+                  {!isPro && !isTrial && (
+                    <div className="p-4 border rounded-xl bg-gradient-to-r from-gray-50 to-blue-50">
+                      <p className="text-sm font-semibold text-gray-800 mb-2">Need more credits without going Pro?</p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {TOPUPS.map(t => (
+                          <Button
+                            key={t.id}
+                            variant="outline"
+                            className={`justify-start text-left ${t.popular ? 'border-blue-400' : ''}`}
+                            onClick={() => navigate(createPageUrl(`Payment?topup=${t.id}`))}
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold">{t.ai_generations_add} AI + {t.pro_searches_add} Pro</span>
+                              <span className="text-xs text-gray-600">{formatCurrency(t.price)}{t.discount_percent ? ` (${t.discount_percent}% off)` : ''}</span>
+                            </div>
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Config driven from plans.json (v{PLANS.version || 1}).</p>
+                    </div>
                   )}
-                </Button>
+                </div>
                 {isTrial && (
                   <p className="text-xs text-center text-gray-500 mt-2">
                     Try all Pro features for free during trial
@@ -338,7 +367,7 @@ export default function ProUpgrade() {
                 </div>
                 <h3 className="font-bold text-lg mb-2">Real-Time Data</h3>
                 <p className="text-sm text-gray-600">
-                  Access live prices and availability from Amadeus, the world's leading travel technology provider
+                  Access live prices and availability from Amadeus, the world&apos;s leading travel technology provider
                 </p>
               </div>
               <div className="text-center">
@@ -360,6 +389,13 @@ export default function ProUpgrade() {
                 </p>
               </div>
             </div>
+            {!isPro && !isTrial && (
+              <div className="mt-8 p-4 rounded-xl border bg-gray-50">
+                <p className="text-sm text-gray-700">
+                  All pricing and top-up bundles are dynamically loaded from <code>plans.json</code>. Adjust credits or pricing without code changes.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -398,7 +434,7 @@ export default function ProUpgrade() {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Downgrade to Free Plan?</DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Are you sure you want to downgrade? You'll get 10 Pro searches and 1 AI generation, but lose unlimited access to Amadeus real-time data.
+              Are you sure you want to downgrade? You&apos;ll get 10 Pro searches and 1 AI generation, but lose unlimited access to Amadeus real-time data.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-3 sm:gap-3">

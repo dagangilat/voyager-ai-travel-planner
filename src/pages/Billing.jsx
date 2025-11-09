@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -164,7 +164,10 @@ export default function Billing() {
                             <Sparkles className="w-4 h-4 text-purple-600" />
                             <div>
                               <p className="text-sm font-medium text-gray-900">
-                                {purchase.credits || purchase.amount} AI Credits
+                                {(purchase.credits || purchase.amount) || 0} AI Credits
+                                {typeof purchase.pro_searches_added === 'number' && purchase.pro_searches_added > 0 && (
+                                  <span> + {purchase.pro_searches_added} Pro Searches</span>
+                                )}
                               </p>
                               <p className="text-xs text-gray-500">
                                 {purchase.transaction_id}

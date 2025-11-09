@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "currency": "USD",
+  "plans": {
+    "free": {
+      "label": "Free",
+      "monthly_price": 0,
+      "ai_generations_included": 1,
+      "pro_searches_included": 10,
+      "description": "Starter plan with limited AI and Pro searches"
+    },
+    "pro_monthly": {
+      "label": "Pro Monthly",
+      "monthly_price": 5.0,
+      "annual_price_equivalent": 5.0,
+      "ai_generations_included": "unlimited",
+      "pro_searches_included": "unlimited",
+      "description": "Unlimited access billed monthly",
+      "discount_available": true
+    },
+    "pro_yearly": {
+      "label": "Pro Yearly",
+      "monthly_price_equivalent": 4.0,
+      "annual_price": 48.0,
+      "ai_generations_included": "unlimited",
+      "pro_searches_included": "unlimited",
+      "description": "Unlimited access billed annually at reduced rate"
+    }
+  },
+  "topups": [
+    {
+      "id": "starter",
+      "ai_generations_add": 3,
+      "pro_searches_add": 30,
+      "price": 2.99,
+      "original_price": 4.99,
+      "popular": false
+    },
+    {
+      "id": "standard",
+      "ai_generations_add": 10,
+      "pro_searches_add": 120,
+      "price": 6.99,
+      "original_price": 11.99,
+      "popular": true
+    },
+    {
+      "id": "power",
+      "ai_generations_add": 25,
+      "pro_searches_add": 350,
+      "price": 14.99,
+      "original_price": 24.99,
+      "popular": false
+    },
+    {
+      "id": "studio",
+      "ai_generations_add": 60,
+      "pro_searches_add": 900,
+      "price": 29.99,
+      "original_price": 49.99,
+      "popular": false
+    }
+  ],
+  "mapping_notes": "Each AI generation roughly equals 12 pro searches value. Top-up bundle pricing reduced >40% from original baseline."}

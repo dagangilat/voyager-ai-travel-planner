@@ -27,15 +27,24 @@ export const getUserProfile = async () => {
   }
   
   try {
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    // Always get a fresh read from Firestore
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    
     if (userDoc.exists()) {
-      return { 
+      const userData = {
         id: user.uid, 
         email: user.email,
         displayName: user.displayName,
         photoURL: user.photoURL,
-        ...userDoc.data() 
+        ...userDoc.data()
       };
+      console.log('📊 User profile fetched:', {
+        id: userData.id,
+        ai_credits: userData.credits?.ai_generations_remaining,
+        pro_searches: userData.credits?.pro_searches_remaining
+      });
+      return userData;
     } else {
       // Return basic user info if no Firestore document exists
       return {

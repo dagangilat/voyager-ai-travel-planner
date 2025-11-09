@@ -20,19 +20,20 @@ import {
 } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { TOPUPS, formatCurrency } from "@/lib/plans";
 
 export default function Profile() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [showTopUpDialog, setShowTopUpDialog] = useState(false);
-  const [selectedTopUp, setSelectedTopUp] = useState(null);
+  const [selectedTopUpId, setSelectedTopUpId] = useState(null);
   // Removed showSuccessDialog state as it's no longer needed
 
   const { data: user, isLoading } = useQuery({
     queryKey: ['user'],
-  queryFn: () => firebaseClient.auth.me(),
-    staleTime: Infinity,
+    queryFn: () => firebaseClient.auth.me(),
+    staleTime: 5 * 60 * 1000, // 5 minutes - allow refetch after updates
   });
 
   const [formData, setFormData] = useState({
@@ -72,21 +73,10 @@ export default function Profile() {
   };
 
   const handleTopUp = () => {
-    if (selectedTopUp) {
-      const option = topUpOptions.find(opt => opt.amount === selectedTopUp);
-      if (option) {
-        navigate(createPageUrl(`Payment?amount=${option.amount}&price=${option.price}`));
-      }
+    if (selectedTopUpId) {
+      navigate(createPageUrl(`Payment?topup=${selectedTopUpId}`));
     }
   };
-
-  const topUpOptions = [
-    { amount: 10, price: 9.99 },
-    { amount: 20, price: 18.99 },
-    { amount: 30, price: 26.99 },
-    { amount: 50, price: 42.99 },
-    { amount: 100, price: 79.99 },
-  ];
 
   const aiCredits = user?.credits?.ai_generations_remaining || 0;
   const proSearchCredits = user?.credits?.pro_searches_remaining || 0;
@@ -154,6 +144,16 @@ export default function Profile() {
                   {proSearchCredits === 0 && "Out of searches - upgrade to Pro for unlimited"}
                   {proSearchCredits > 0 && `${proSearchCredits} Pro searches remaining`}
                 </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                    onClick={() => setShowTopUpDialog(true)}
+                  >
+                    Top up now
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -291,16 +291,16 @@ export default function Profile() {
               Top Up AI Credits
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Select the number of AI generations you'd like to purchase. Credits never expire!
+              Choose a bundle. Each top-up adds AI credits and bonus Pro searches. Credits never expire!
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-4">
-            {topUpOptions.map((option) => (
+            {TOPUPS.map((t) => (
               <button
-                key={option.amount}
-                onClick={() => setSelectedTopUp(option.amount)}
+                key={t.id}
+                onClick={() => setSelectedTopUpId(t.id)}
                 className={`p-4 rounded-xl border-2 transition-all ${
-                  selectedTopUp === option.amount
+                  selectedTopUpId === t.id
                     ? 'border-purple-600 bg-purple-50'
                     : 'border-gray-200 hover:border-purple-300'
                 }`}
@@ -308,25 +308,40 @@ export default function Profile() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      selectedTopUp === option.amount ? 'bg-purple-600' : 'bg-gray-100'
+                      selectedTopUpId === t.id ? 'bg-purple-600' : 'bg-gray-100'
                     }`}>
-                      {selectedTopUp === option.amount ? (
+                      {selectedTopUpId === t.id ? (
                         <Check className="w-5 h-5 text-white" />
                       ) : (
-                        <Sparkles className={`w-5 h-5 ${selectedTopUp === option.amount ? 'text-white' : 'text-gray-400'}`} />
+                        <Sparkles className={`w-5 h-5 ${selectedTopUpId === t.id ? 'text-white' : 'text-gray-400'}`} />
                       )}
                     </div>
                     <div className="text-left">
-                      <p className="font-bold text-lg">{option.amount} AI Generations</p>
-                      <p className="text-sm text-gray-500">
-                        ${(option.price / option.amount).toFixed(2)} per generation
+                      <p className="font-bold text-lg">{t.ai_generations_add} AI + {t.pro_searches_add} Pro</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {t.original_price && (
+                          <span className="text-xs line-through text-gray-400">
+                            {formatCurrency(t.original_price)}
+                          </span>
+                        )}
+                        <span className="text-sm font-semibold text-purple-700">
+                          {formatCurrency(t.price)}
+                        </span>
+                        {t.discount_percent && (
+                          <Badge className="bg-red-100 text-red-700 text-[11px]">
+                            -{t.discount_percent}%
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatCurrency(t.price_per_ai_generation)} per AI credit
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-xl text-gray-900">${option.price}</p>
-                    {option.amount >= 50 && (
-                      <Badge className="bg-green-100 text-green-700">Best Value</Badge>
+                    <p className="font-bold text-xl text-gray-900">{formatCurrency(t.price)}</p>
+                    {t.popular && (
+                      <Badge className="bg-green-100 text-green-700">Most Popular</Badge>
                     )}
                   </div>
                 </div>
@@ -336,7 +351,7 @@ export default function Profile() {
           <DialogFooter>
             <Button
               onClick={handleTopUp}
-              disabled={!selectedTopUp}
+              disabled={!selectedTopUpId}
               className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
               Continue to Payment
