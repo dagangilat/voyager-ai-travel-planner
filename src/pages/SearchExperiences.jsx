@@ -202,35 +202,16 @@ export default function SearchExperiences() {
       
       // If still no coordinates, try geocoding the location display name
       if (!coordinates?.lat && destination.location_name) {
-        console.log('[SearchExperiences] Geocoding location:', destination.location_name);
-        try {
-          const geocodeResult = await firebaseClient.functions.invoke('geocodeLocation', {
-            address: destination.location_name
-          });
-          
-          if (geocodeResult && geocodeResult.location) {
-            coordinates = geocodeResult.location;
-            console.log('[SearchExperiences] Got coordinates from geocoding:', coordinates);
-            
-            // Update the destination with coordinates for future use
-            try {
-              await firebaseClient.entities.Destination.update(destId, {
-                location_coordinates: coordinates
-              });
-            } catch (error) {
-              console.error('[SearchExperiences] Error updating destination coordinates:', error);
-            }
-          }
-        } catch (error) {
-          console.error('[SearchExperiences] Geocoding error:', error);
-        }
+        console.log('[SearchExperiences] No coordinates available, will use location name for search');
+        // Skip geocoding for now since the API key doesn't have Geocoding API enabled
+        // Amadeus can work with city names directly
       }
       
       setSearchParams({
         ...searchParams,
         destination_id: destId,
         location: destination.location,
-        location_display: destination.location_name,
+        location_display: destination.location_name || destination.location,
         location_coordinates: coordinates,
         date: destination.arrival_date
       });
@@ -435,7 +416,7 @@ Return 5-8 diverse and highly-rated options if available.`;
                     <SelectContent>
                       {enrichedDestinations.map((dest) => (
                         <SelectItem key={dest.id} value={dest.id}>
-                          {dest.location_name}
+                          {dest.location_name || dest.location || `Destination ${dest.id}`}
                         </SelectItem>
                       ))}
                     </SelectContent>

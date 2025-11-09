@@ -248,10 +248,14 @@ export default function SearchTransportation() {
   const handleDestinationChange = (destId) => {
     const destination = destinations.find(d => d.id === destId);
     if (destination) {
+      const displayName = destination.location_name || destination.location;
+      const iataCode = extractIataCode(displayName);
+      
       setSearchParams(prev => ({
         ...prev,
         to_location: destination.location,
-        to_location_display: destination.location_name || destination.location,
+        to_location_code: iataCode,
+        to_location_display: displayName,
         departure_date: destination.arrival_date
       }));
     }
