@@ -26,11 +26,11 @@ export default defineConfig(({ mode }) => {
       }
     ].filter(Boolean),
     build: {
+      sourcemap: false,
       rollupOptions: {
-        // Don't treat Firebase modules as external - they should be bundled
-        // But configure them to be tree-shakeable
         output: {
           manualChunks: {
+            'vendor': ['react', 'react-dom', 'react-router-dom'],
             'firebase': [
               'firebase/app',
               'firebase/auth',
