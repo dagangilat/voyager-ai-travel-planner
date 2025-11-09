@@ -423,9 +423,7 @@ Return 5-8 diverse and highly-rated options if available.`;
                   <Label className="text-sm font-semibold text-gray-700">Select Destination</Label>
                   <Select value={searchParams.destination_id} onValueChange={handleDestinationChange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select destination">
-                        {searchParams.destination_id && searchParams.location_display}
-                      </SelectValue>
+                      <SelectValue placeholder="Select destination" />
                     </SelectTrigger>
                     <SelectContent>
                       {enrichedDestinations.map((dest) => (
