@@ -200,22 +200,29 @@ export default function SearchExperiences() {
       // Get coordinates from enriched destination (already has place coordinates)
       let coordinates = destination.location_coordinates;
       
-      // If still no coordinates, try to get directly from places
-      if (!coordinates?.lat) {
-        console.log('[SearchExperiences] Need coordinates for:', destination.location_name);
-        const place = places.find(p => p.id === destination.location);
-        if (place?.location?.lat) {
-          coordinates = place.location;
-          console.log('[SearchExperiences] Got coordinates from place:', coordinates);
+      // If still no coordinates, try geocoding the location display name
+      if (!coordinates?.lat && destination.location_name) {
+        console.log('[SearchExperiences] Geocoding location:', destination.location_name);
+        try {
+          const geocodeResult = await firebaseClient.functions.invoke('geocodeLocation', {
+            address: destination.location_name
+          });
           
-          // Update the destination with coordinates for future use
-          try {
-            await firebaseClient.entities.Destination.update(destId, {
-              location_coordinates: coordinates
-            });
-          } catch (error) {
-            console.error('[SearchExperiences] Error updating destination coordinates:', error);
+          if (geocodeResult && geocodeResult.location) {
+            coordinates = geocodeResult.location;
+            console.log('[SearchExperiences] Got coordinates from geocoding:', coordinates);
+            
+            // Update the destination with coordinates for future use
+            try {
+              await firebaseClient.entities.Destination.update(destId, {
+                location_coordinates: coordinates
+              });
+            } catch (error) {
+              console.error('[SearchExperiences] Error updating destination coordinates:', error);
+            }
           }
+        } catch (error) {
+          console.error('[SearchExperiences] Geocoding error:', error);
         }
       }
       
