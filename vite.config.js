@@ -30,14 +30,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: {
-            'vendor': ['react', 'react-dom', 'react-router-dom'],
-            'firebase': [
-              'firebase/app',
-              'firebase/auth',
-              'firebase/firestore',
-              'firebase/storage',
-              'firebase/functions'
-            ]
+            'vendor': ['react', 'react-dom', 'react-router-dom']
           }
         }
       }
@@ -65,7 +58,7 @@ export default defineConfig(({ mode }) => {
       extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json']
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'firebase/app', 'firebase/auth', 'firebase/firestore'],
+      include: ['react', 'react-dom'],
       esbuildOptions: {
         loader: {
           '.js': 'jsx',
