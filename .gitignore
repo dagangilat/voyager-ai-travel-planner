@@ -35,3 +35,6 @@ serviceAccountKey.json
 service-account.json
 service-account.json.backup
 *-service-account.json
+
+# VSCode user data and settings (sensitive)
+home/
