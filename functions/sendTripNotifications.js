@@ -110,8 +110,9 @@ exports.onTripCreated = functions.firestore
 
       const user = userDoc.data();
       
-      // Check if user wants this notification
-      if (!user.email_notifications?.trip_created) {
+      // Check if user wants this notification (default to true if not set)
+      const emailNotifications = user.email_notifications || {};
+      if (emailNotifications.trip_created === false) {
         functions.logger.info('User has disabled trip_created notifications');
         return null;
       }
@@ -173,8 +174,9 @@ exports.onTripUpdated = functions.firestore
 
       const user = userDoc.data();
       
-      // Check if user wants this notification
-      if (!user.email_notifications?.trip_updated) {
+      // Check if user wants this notification (default to true if not set)
+      const emailNotifications = user.email_notifications || {};
+      if (emailNotifications.trip_updated === false) {
         functions.logger.info('User has disabled trip_updated notifications');
         return null;
       }
@@ -235,8 +237,9 @@ exports.onTripDeleted = functions.firestore
 
       const user = userDoc.data();
       
-      // Check if user wants this notification
-      if (!user.email_notifications?.trip_deleted) {
+      // Check if user wants this notification (default to true if not set)
+      const emailNotifications = user.email_notifications || {};
+      if (emailNotifications.trip_deleted === false) {
         functions.logger.info('User has disabled trip_deleted notifications');
         return null;
       }
