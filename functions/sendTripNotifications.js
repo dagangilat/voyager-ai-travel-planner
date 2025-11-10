@@ -1,21 +1,15 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const { Resend } = require('resend');
-
-// Get Resend API key lazily (not during module load)
-function getResendApiKey() {
-  const apiKey = process.env.RESEND_API_KEY || functions.config().resend?.api_key;
-  if (!apiKey) {
-    functions.logger.error('Resend API key not configured!');
-    throw new Error('Resend API key not configured');
-  }
-  functions.logger.info('Resend API key loaded successfully');
-  return apiKey;
-}
 
 /**
  * Send email notification when a trip is created, updated, or deleted
- * Uses Resend as the email provider
+ * Uses Firebase Extension: Trigger Email from Firestore
+ * 
+ * How it works:
+ * 1. Write email document to 'mail' collection
+ * 2. Extension watches this collection
+ * 3. Extension sends the email via configured provider
+ * 4. Extension updates document with delivery status
  */
 
 // Helper to format date nicely
@@ -156,29 +150,31 @@ exports.onTripCreated = functions.firestore
 
       const htmlContent = generateTripItineraryHTML(trip, destinations);
 
-      // Initialize Resend with API key
-      functions.logger.info('Initializing Resend...');
-      const resend = new Resend(getResendApiKey());
-
-      functions.logger.info('Sending email...', { to: email, from: 'Voyager <onboarding@resend.dev>' });
+      // Write email document to 'mail' collection
+      // Firebase Extension will pick it up and send it
+      functions.logger.info('Creating email document in Firestore...');
       
-      // Send email using Resend
-      const result = await resend.emails.send({
-        from: 'Voyager <onboarding@resend.dev>',
+      await admin.firestore().collection('mail').add({
         to: email,
-        subject: `🎉 Your trip "${trip.name}" has been created!`,
-        html: htmlContent,
+        message: {
+          subject: `🎉 Your trip "${trip.name}" has been created!`,
+          html: htmlContent,
+        },
+        metadata: {
+          tripId,
+          userId: trip.user_id,
+          type: 'trip_created',
+        },
       });
 
-      functions.logger.info('✅ Email sent successfully!', { 
-        result,
+      functions.logger.info('✅ Email document created! Extension will send it.', { 
         tripId, 
         to: email 
       });
       
       return null;
     } catch (error) {
-      functions.logger.error('❌ Error sending trip creation email:', {
+      functions.logger.error('❌ Error creating email document:', {
         error: error.message,
         stack: error.stack,
         tripId: context.params.tripId
@@ -232,21 +228,24 @@ exports.onTripUpdated = functions.firestore
 
       const htmlContent = generateTripItineraryHTML(tripAfter, destinations);
 
-      // Initialize Resend with API key
-      const resend = new Resend(getResendApiKey());
-
-      // Send email using Resend
-      await resend.emails.send({
-        from: 'Voyager <onboarding@resend.dev>',
+      // Write email document to 'mail' collection
+      await admin.firestore().collection('mail').add({
         to: email,
-        subject: `✏️ Your trip "${tripAfter.name}" has been updated`,
-        html: htmlContent,
+        message: {
+          subject: `✏️ Your trip "${tripAfter.name}" has been updated`,
+          html: htmlContent,
+        },
+        metadata: {
+          tripId,
+          userId: tripAfter.user_id,
+          type: 'trip_updated',
+        },
       });
 
-      functions.logger.info('Email notification sent successfully for trip update:', tripId);
+      functions.logger.info('Email document created for trip update:', tripId);
       return null;
     } catch (error) {
-      functions.logger.error('Error sending trip update email:', error);
+      functions.logger.error('Error creating email document for trip update:', error);
       return null;
     }
   });
@@ -318,17 +317,24 @@ exports.onTripDeleted = functions.firestore
       const resend = new Resend(getResendApiKey());
 
       // Send email using Resend
-      await resend.emails.send({
-        from: 'Voyager <onboarding@resend.dev>',
+      // Write email document to 'mail' collection
+      await admin.firestore().collection('mail').add({
         to: email,
-        subject: `🗑️ Trip "${trip.name}" has been deleted`,
-        html: htmlContent,
+        message: {
+          subject: `🗑️ Trip "${trip.name}" has been deleted`,
+          html: htmlContent,
+        },
+        metadata: {
+          tripId,
+          userId: trip.user_id,
+          type: 'trip_deleted',
+        },
       });
 
-      functions.logger.info('Email notification sent successfully for trip deletion:', tripId);
+      functions.logger.info('Email document created for trip deletion:', tripId);
       return null;
     } catch (error) {
-      functions.logger.error('Error sending trip deletion email:', error);
+      functions.logger.error('Error creating email document for trip deletion:', error);
       return null;
     }
   });
