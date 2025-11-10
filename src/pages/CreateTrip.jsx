@@ -184,7 +184,8 @@ export default function CreateTrip() {
 
       if (withAI && newTripId) {
         setIsGeneratingAI(true);
-        setShowSuccessDialog(true); // Show dialog immediately
+        setCreatedTripId(newTripId);
+        // Don't show success dialog yet - show progress overlay instead
         setAiProgress({ show: true, message: 'Starting AI trip generation...', detail: 'Analyzing your destinations' });
         
         try {
@@ -408,15 +409,21 @@ Provide realistic, varied options at different price points. Use actual airline 
           
           queryClient.invalidateQueries({ queryKey: ['user'] });
           console.log('AI generation complete!');
+          
+          // Show success dialog after AI completes
+          setAiProgress({ show: false, message: '' });
+          setShowSuccessDialog(true);
         } catch (error) {
           console.error('AI generation error:', error);
           // Still show success dialog even if AI fails - trip was created
+          setAiProgress({ show: false, message: '' });
+          setShowSuccessDialog(true);
         } finally {
           setIsGeneratingAI(false);
-          setAiProgress({ show: false, message: '' });
         }
       } else {
         // Show success dialog immediately if not using AI
+        setCreatedTripId(newTripId);
         setShowSuccessDialog(true);
       }
 
@@ -927,7 +934,7 @@ Provide realistic, varied options at different price points. Use actual airline 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-blue-600/20 backdrop-blur-sm z-50 flex items-center justify-center"
+            className="fixed inset-0 bg-blue-600/20 backdrop-blur-sm z-[100] flex items-center justify-center"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}

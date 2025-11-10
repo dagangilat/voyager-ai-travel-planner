@@ -2,8 +2,9 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { Resend } = require('resend');
 
-// Initialize Resend with API key from environment
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend with API key from Firebase config or environment
+const resendApiKey = process.env.RESEND_API_KEY || functions.config().resend?.api_key;
+const resend = new Resend(resendApiKey);
 
 /**
  * Send email notification when a trip is created, updated, or deleted
@@ -130,7 +131,7 @@ exports.onTripCreated = functions.firestore
 
       // Send email using Resend
       await resend.emails.send({
-        from: 'Voyager <noreply@voyager-travel.com>',
+        from: 'Voyager <onboarding@resend.dev>',
         to: email,
         subject: `🎉 Your trip "${trip.name}" has been created!`,
         html: htmlContent,
@@ -190,7 +191,7 @@ exports.onTripUpdated = functions.firestore
 
       // Send email using Resend
       await resend.emails.send({
-        from: 'Voyager <noreply@voyager-travel.com>',
+        from: 'Voyager <onboarding@resend.dev>',
         to: email,
         subject: `✏️ Your trip "${tripAfter.name}" has been updated`,
         html: htmlContent,
@@ -268,7 +269,7 @@ exports.onTripDeleted = functions.firestore
 
       // Send email using Resend
       await resend.emails.send({
-        from: 'Voyager <noreply@voyager-travel.com>',
+        from: 'Voyager <onboarding@resend.dev>',
         to: email,
         subject: `🗑️ Trip "${trip.name}" has been deleted`,
         html: htmlContent,
