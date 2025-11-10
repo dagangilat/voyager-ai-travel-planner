@@ -9,6 +9,30 @@ import { motion, AnimatePresence } from "framer-motion";
 const searchCache = new Map();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
+// Pre-populate cache with common queries for instant response
+const POPULAR_QUERIES = {
+  'am': 'Amsterdam',
+  'ams': 'Amsterdam',
+  'amst': 'Amsterdam',
+  'lon': 'London',
+  'lond': 'London',
+  'par': 'Paris',
+  'pari': 'Paris',
+  'new': 'New York',
+  'tok': 'Tokyo',
+  'sing': 'Singapore',
+  'dub': 'Dubai',
+  'rom': 'Rome',
+  'barc': 'Barcelona',
+  'mad': 'Madrid',
+  'ber': 'Berlin',
+  'mun': 'Munich',
+  'vie': 'Vienna',
+  'pra': 'Prague',
+  'lis': 'Lisbon',
+  'ban': 'Bangkok',
+};
+
 export default function LocationSearchInput({ 
   value, 
   onChange, 

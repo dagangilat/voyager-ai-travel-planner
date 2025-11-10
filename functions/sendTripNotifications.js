@@ -2,9 +2,16 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { Resend } = require('resend');
 
-// Initialize Resend with API key from Firebase config or environment
-const resendApiKey = process.env.RESEND_API_KEY || functions.config().resend?.api_key;
-const resend = new Resend(resendApiKey);
+// Get Resend API key lazily (not during module load)
+function getResendApiKey() {
+  const apiKey = process.env.RESEND_API_KEY || functions.config().resend?.api_key;
+  if (!apiKey) {
+    functions.logger.error('Resend API key not configured!');
+    throw new Error('Resend API key not configured');
+  }
+  functions.logger.info('Resend API key loaded successfully');
+  return apiKey;
+}
 
 /**
  * Send email notification when a trip is created, updated, or deleted
@@ -129,6 +136,9 @@ exports.onTripCreated = functions.firestore
 
       const htmlContent = generateTripItineraryHTML(trip, destinations);
 
+      // Initialize Resend with API key
+      const resend = new Resend(getResendApiKey());
+
       // Send email using Resend
       await resend.emails.send({
         from: 'Voyager <onboarding@resend.dev>',
@@ -137,7 +147,7 @@ exports.onTripCreated = functions.firestore
         html: htmlContent,
       });
 
-      functions.logger.info('Email notification sent for trip creation:', tripId);
+      functions.logger.info('Email notification sent successfully for trip creation:', tripId);
       return null;
     } catch (error) {
       functions.logger.error('Error sending trip creation email:', error);
@@ -189,6 +199,9 @@ exports.onTripUpdated = functions.firestore
 
       const htmlContent = generateTripItineraryHTML(tripAfter, destinations);
 
+      // Initialize Resend with API key
+      const resend = new Resend(getResendApiKey());
+
       // Send email using Resend
       await resend.emails.send({
         from: 'Voyager <onboarding@resend.dev>',
@@ -197,7 +210,7 @@ exports.onTripUpdated = functions.firestore
         html: htmlContent,
       });
 
-      functions.logger.info('Email notification sent for trip update:', tripId);
+      functions.logger.info('Email notification sent successfully for trip update:', tripId);
       return null;
     } catch (error) {
       functions.logger.error('Error sending trip update email:', error);
@@ -267,6 +280,9 @@ exports.onTripDeleted = functions.firestore
         </div>
       `;
 
+      // Initialize Resend with API key
+      const resend = new Resend(getResendApiKey());
+
       // Send email using Resend
       await resend.emails.send({
         from: 'Voyager <onboarding@resend.dev>',
@@ -275,7 +291,7 @@ exports.onTripDeleted = functions.firestore
         html: htmlContent,
       });
 
-      functions.logger.info('Email notification sent for trip deletion:', tripId);
+      functions.logger.info('Email notification sent successfully for trip deletion:', tripId);
       return null;
     } catch (error) {
       functions.logger.error('Error sending trip deletion email:', error);
