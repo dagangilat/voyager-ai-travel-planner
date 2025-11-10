@@ -38,3 +38,6 @@ service-account.json.backup
 
 # VSCode user data and settings (sensitive)
 home/
+
+# Firebase deployment cache
+.firebase/
