@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -68,6 +69,13 @@ export default function TripDetails() {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [loadingBookingUrls, setLoadingBookingUrls] = useState(new Set()); // New state for tracking loading booking URLs
+  const [showAIOptionsDialog, setShowAIOptionsDialog] = useState(false);
+  const [aiOptionsCount, setAiOptionsCount] = useState({
+    transportation: 2,
+    lodging: 2,
+    experiences: 2
+  });
+  const [aiProgress, setAiProgress] = useState({ show: false, message: '', detail: '' });
 
   // New states for general purpose dialogs
   const [showErrorDialog, setShowErrorDialog] = useState(false);
@@ -428,18 +436,20 @@ export default function TripDetails() {
       ).join('\n');
 
       const budgetDescription = {
-        basic: 'Budget-friendly options, hostels, budget airlines, free activities',
-        fine: 'Mid-range comfortable options, 3-4 star hotels, quality transportation, mix of paid and free activities',
+        economy: 'Budget-friendly options, hostels, budget airlines, free activities',
+        premium: 'Mid-range comfortable options, 3-4 star hotels, quality transportation, mix of paid and free activities',
         luxury: 'Premium luxury options, 5-star hotels, business class flights, exclusive experiences'
       }[trip.budget_level];
 
       const tempoDescription = {
-        relaxed: 'relaxed pace with plenty of downtime, 1-2 activities per day',
-        active: 'balanced pace with moderate activities, 3-4 activities per day',
-        extreme: 'packed schedule maximizing experiences, 5+ activities per day'
+        chill: 'Relaxed pace with plenty of downtime, 1-2 activities per day',
+        adventure: 'Adventure-focused with outdoor and thrilling activities, 3-4 activities per day',
+        culture: 'Cultural immersion with museums, history, and local experiences',
+        sports: 'Sports and active recreation focused activities',
+        mix: 'Balanced mix of different activity types, 3-4 activities per day'
       }[trip.tempo];
 
-      const prompt = `Create a complete travel itinerary for this trip with MULTIPLE OPTIONS for each category:
+      const prompt = `Create a complete travel itinerary for this trip with exactly ${aiOptionsCount.transportation} OPTIONS for transportation, ${aiOptionsCount.lodging} OPTIONS for lodging, and ${aiOptionsCount.experiences} OPTIONS for experiences:
 
 Trip: ${trip.name}
 Origin: ${trip.origin}
@@ -450,9 +460,9 @@ Tempo: ${trip.tempo} (${tempoDescription})
 Destinations:
 ${destinationsText}
 
-IMPORTANT: Generate 2-3 OPTIONS for each category below:
+IMPORTANT: Generate exactly ${aiOptionsCount.transportation} OPTIONS for transportation, ${aiOptionsCount.lodging} OPTIONS for lodging, and ${aiOptionsCount.experiences} OPTIONS for experiences:
 
-For TRANSPORTATION between each destination, provide 2-3 options:
+For TRANSPORTATION between each destination, provide exactly ${aiOptionsCount.transportation} options:
 - type (flight/train/bus/ferry)
 - from_location (code)
 - from_location_display (full name)
@@ -464,7 +474,7 @@ For TRANSPORTATION between each destination, provide 2-3 options:
 - price (estimated in USD)
 - status (e.g., 'saved')
 
-For LODGING at each destination, provide 2-3 options:
+For LODGING at each destination, provide exactly ${aiOptionsCount.lodging} options:
 - name (hotel/property name)
 - type (hotel/airbnb/hostel/resort)
 - location (code)
@@ -475,7 +485,7 @@ For LODGING at each destination, provide 2-3 options:
 - rating (1-10)
 - status (e.g., 'saved')
 
-For EXPERIENCES at each destination, provide 2-3 options based on the destination purposes:
+For EXPERIENCES at each destination, provide exactly ${aiOptionsCount.experiences} options based on the destination purposes:
 - name (activity name)
 - category (city_tour/day_trip/food_wine/workshop/outdoor/cultural/adventure/entertainment/wellness)
 - provider (company name)
@@ -489,7 +499,9 @@ For EXPERIENCES at each destination, provide 2-3 options based on the destinatio
 
 Make realistic suggestions based on actual available services. Consider travel times and logistics. Provide variety in options (different price points, different providers, different experiences).`;
 
-  const result = await firebaseClient.integrations.Core.InvokeLLM({
+      setAiProgress({ show: true, message: 'Generating recommendations...', detail: 'Planning transportation options' });
+
+      const result = await firebaseClient.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: true,
         response_json_schema: {
@@ -555,47 +567,71 @@ Make realistic suggestions based on actual available services. Consider travel t
         }
       });
 
-      // Create all items
-      const transportationPromises = (result.transportation || []).map(t =>
-  firebaseClient.entities.Transportation.create({
+      // Create transportation items with progress
+      const transportationItems = result.transportation || [];
+      for (let i = 0; i < transportationItems.length; i++) {
+        const t = transportationItems[i];
+        const fromDisplay = t.from_location_display || t.from_location;
+        const toDisplay = t.to_location_display || t.to_location;
+        setAiProgress({
+          show: true,
+          message: 'Generating Transportation',
+          detail: `${fromDisplay} → ${toDisplay}`
+        });
+        
+        await firebaseClient.entities.Transportation.create({
           ...t,
           trip_id: tripId,
           status: t.status || 'saved'
-        })
-      );
+        });
+      }
 
-      const lodgingPromises = (result.lodging || []).map(l => {
-        let nights = 1; // Default to 1 night if dates are same or missing
+      // Create lodging items with progress
+      const lodgingItems = result.lodging || [];
+      for (let i = 0; i < lodgingItems.length; i++) {
+        const l = lodgingItems[i];
+        const locationDisplay = l.location_display || l.location;
+        setAiProgress({
+          show: true,
+          message: 'Generating Lodging',
+          detail: `${l.name} in ${locationDisplay}`
+        });
+
+        let nights = 1;
         if (l.check_in_date && l.check_out_date) {
-            const checkIn = new Date(l.check_in_date);
-            const checkOut = new Date(l.check_out_date);
-            const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
-            nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            if (nights === 0 && checkIn.getTime() !== checkOut.getTime()) nights = 1; // Ensure at least 1 night if different days
-            if (nights === 0 && checkIn.getTime() === checkOut.getTime()) nights = 0; // If same day, 0 nights
+          const checkIn = new Date(l.check_in_date);
+          const checkOut = new Date(l.check_out_date);
+          const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+          nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (nights === 0 && checkIn.getTime() !== checkOut.getTime()) nights = 1;
+          if (nights === 0 && checkIn.getTime() === checkOut.getTime()) nights = 0;
         }
 
-  return firebaseClient.entities.Lodging.create({
+        await firebaseClient.entities.Lodging.create({
           ...l,
           trip_id: tripId,
           total_price: l.price_per_night && nights > 0 ? l.price_per_night * nights : undefined,
           status: l.status || 'saved'
         });
-      });
+      }
 
-      const experiencesPromises = (result.experiences || []).map(e =>
-  firebaseClient.entities.Experience.create({
+      // Create experience items with progress
+      const experienceItems = result.experiences || [];
+      for (let i = 0; i < experienceItems.length; i++) {
+        const e = experienceItems[i];
+        const locationDisplay = e.location_display || e.location;
+        setAiProgress({
+          show: true,
+          message: 'Generating Experiences',
+          detail: `${e.name} in ${locationDisplay}`
+        });
+
+        await firebaseClient.entities.Experience.create({
           ...e,
           trip_id: tripId,
           status: e.status || 'saved'
-        })
-      );
-
-      await Promise.all([
-        ...transportationPromises,
-        ...lodgingPromises,
-        ...experiencesPromises
-      ]);
+        });
+      }
 
       return result;
     },
@@ -760,6 +796,14 @@ Make realistic suggestions based on actual available services. Consider travel t
       return;
     }
 
+    // Show options dialog
+    setShowAIOptionsDialog(true);
+  };
+
+  const executeAIGeneration = async () => {
+
+    const aiCredits = user?.credits?.ai_generations_remaining || 0;
+
     const hasExistingData = transportation.length > 0 || lodging.length > 0 || experiences.length > 0;
     if (hasExistingData) {
       setConfirmDialogTitle('Add AI-Generated Items?');
@@ -767,6 +811,7 @@ Make realistic suggestions based on actual available services. Consider travel t
       setConfirmDialogAction(() => async () => {
         setShowConfirmDialog(false);
         setIsGeneratingAI(true);
+        setAiProgress({ show: true, message: 'Starting AI trip generation...', detail: 'Analyzing your destinations' });
         try {
           await generateAITripMutation.mutateAsync();
           
@@ -784,6 +829,7 @@ Make realistic suggestions based on actual available services. Consider travel t
           // Error handling is already in mutation's onError
         } finally {
           setIsGeneratingAI(false);
+          setAiProgress({ show: false, message: '', detail: '' });
         }
       });
       setShowConfirmDialog(true);
@@ -792,11 +838,12 @@ Make realistic suggestions based on actual available services. Consider travel t
 
     // If no existing data and all checks pass, proceed directly
     setIsGeneratingAI(true);
+    setAiProgress({ show: true, message: 'Starting AI trip generation...', detail: 'Analyzing your destinations' });
     try {
       await generateAITripMutation.mutateAsync();
       
       // Decrement AI credit
-  await firebaseClient.auth.updateMe({
+      await firebaseClient.auth.updateMe({
         credits: {
           ...(user.credits || {}),
           ai_generations_remaining: aiCredits - 1
@@ -809,6 +856,7 @@ Make realistic suggestions based on actual available services. Consider travel t
       // Error handling is already in mutation's onError
     } finally {
       setIsGeneratingAI(false);
+      setAiProgress({ show: false, message: '', detail: '' });
     }
   };
 
@@ -1283,7 +1331,7 @@ Make realistic suggestions based on actual available services. Consider travel t
                 <>
                   <span>•</span>
                   <Badge className="bg-white/20 text-white border-white/30">
-                    {trip.budget_level === 'basic' ? '💰 Basic' : trip.budget_level === 'fine' ? '✨ Fine' : '👑 Luxury'}
+                    {trip.budget_level === 'economy' ? '💰 Economy' : trip.budget_level === 'premium' ? '✨ Premium' : '👑 Luxury'}
                   </Badge>
                 </>
               )}
@@ -1291,7 +1339,7 @@ Make realistic suggestions based on actual available services. Consider travel t
                 <>
                   <span>•</span>
                   <Badge className="bg-white/20 text-white border-white/30">
-                    {trip.tempo === 'relaxed' ? '🌴 Relaxed' : trip.tempo === 'active' ? '🚶 Active' : '⚡ Extreme'}
+                    {trip.tempo === 'chill' ? '🌴 Chill' : trip.tempo === 'adventure' ? '🏔️ Adventure' : trip.tempo === 'culture' ? '🎭 Culture' : trip.tempo === 'sports' ? '⚽ Sports' : '🎨 Mix'}
                   </Badge>
                 </>
               )}
@@ -2346,6 +2394,142 @@ Make realistic suggestions based on actual available services. Consider travel t
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI Options Dialog */}
+      <Dialog open={showAIOptionsDialog} onOpenChange={setShowAIOptionsDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-purple-600" />
+              AI Generation Options
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              Choose how many options you'd like AI to generate for each category per destination
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-gray-700">Transportation Options</Label>
+              <div className="flex gap-2">
+                {[1, 2, 3].map(num => (
+                  <Button
+                    key={`trans-${num}`}
+                    type="button"
+                    variant={aiOptionsCount.transportation === num ? "default" : "outline"}
+                    onClick={() => setAiOptionsCount(prev => ({ ...prev, transportation: num }))}
+                    className="flex-1"
+                  >
+                    {num}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">Options for flights, trains, buses between destinations</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-gray-700">Lodging Options</Label>
+              <div className="flex gap-2">
+                {[1, 2, 3].map(num => (
+                  <Button
+                    key={`lodging-${num}`}
+                    type="button"
+                    variant={aiOptionsCount.lodging === num ? "default" : "outline"}
+                    onClick={() => setAiOptionsCount(prev => ({ ...prev, lodging: num }))}
+                    className="flex-1"
+                  >
+                    {num}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">Hotel and accommodation options per destination</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-gray-700">Experience Options</Label>
+              <div className="flex gap-2">
+                {[1, 2, 3].map(num => (
+                  <Button
+                    key={`exp-${num}`}
+                    type="button"
+                    variant={aiOptionsCount.experiences === num ? "default" : "outline"}
+                    onClick={() => setAiOptionsCount(prev => ({ ...prev, experiences: num }))}
+                    className="flex-1"
+                  >
+                    {num}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">Activity and tour options per destination</p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                <span className="font-semibold">Generating:</span> {aiOptionsCount.transportation + aiOptionsCount.lodging + aiOptionsCount.experiences} total options per destination
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              onClick={() => setShowAIOptionsDialog(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowAIOptionsDialog(false);
+                executeAIGeneration();
+              }}
+              className="bg-gradient-to-r from-purple-600 to-blue-600"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Generate with AI
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Progress Overlay */}
+      <AnimatePresence>
+        {aiProgress.show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-blue-600/20 backdrop-blur-sm z-50 flex items-center justify-center"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4"
+            >
+              <div className="flex flex-col items-center space-y-4">
+                <div className="relative">
+                  <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+                  <Sparkles className="w-6 h-6 text-purple-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    AI Trip Planning in Progress
+                  </h3>
+                  <p className="text-blue-600 font-medium text-lg">
+                    {aiProgress.message}
+                  </p>
+                  {aiProgress.detail && (
+                    <p className="text-gray-600 mt-2">
+                      {aiProgress.detail}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-500 mt-3">
+                    This may take a minute...
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* AI Generation Success Dialog */}
       <Dialog open={generationSuccess} onOpenChange={setGenerationSuccess}>

@@ -33,8 +33,8 @@ export default function EditTrip() {
   const [origin, setOrigin] = useState("");
   const [originDisplay, setOriginDisplay] = useState("");
   const [departureDate, setDepartureDate] = useState("");
-  const [budgetLevel, setBudgetLevel] = useState("fine");
-  const [tempo, setTempo] = useState("active");
+  const [budgetLevel, setBudgetLevel] = useState("economy");
+  const [tempo, setTempo] = useState("mix");
   const [destinations, setDestinations] = useState([]);
   const [showDestinationForm, setShowDestinationForm] = useState(false);
   const [editingDestination, setEditingDestination] = useState(null);
@@ -64,8 +64,8 @@ export default function EditTrip() {
       setOrigin(trip.origin || "");
       setOriginDisplay(trip.origin || "");
       setDepartureDate(trip.departure_date || "");
-      setBudgetLevel(trip.budget_level || "fine");
-      setTempo(trip.tempo || "active");
+      setBudgetLevel(trip.budget_level || "economy");
+      setTempo(trip.tempo || "mix");
     }
   }, [trip]);
 
@@ -284,9 +284,9 @@ export default function EditTrip() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="budget">Budget - Cost-conscious</SelectItem>
-                    <SelectItem value="fine">Fine - Mid-range comfort</SelectItem>
-                    <SelectItem value="luxury">Luxury - Premium experience</SelectItem>
+                    <SelectItem value="economy">Economy - Budget-friendly</SelectItem>
+                    <SelectItem value="premium">Premium - Mid-range comfort</SelectItem>
+                    <SelectItem value="luxury">Luxury - High-end exclusive</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -298,9 +298,11 @@ export default function EditTrip() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="slow">Slow - Relaxed pace</SelectItem>
-                    <SelectItem value="active">Active - Balanced schedule</SelectItem>
-                    <SelectItem value="intense">Intense - Action-packed</SelectItem>
+                    <SelectItem value="chill">Chill - Relaxed pace</SelectItem>
+                    <SelectItem value="adventure">Adventure - Outdoor thrills</SelectItem>
+                    <SelectItem value="culture">Culture - Museums & history</SelectItem>
+                    <SelectItem value="sports">Sports - Active recreation</SelectItem>
+                    <SelectItem value="mix">Mix - Balanced variety</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

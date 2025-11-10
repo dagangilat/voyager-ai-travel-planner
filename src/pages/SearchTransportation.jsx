@@ -86,79 +86,17 @@ export default function SearchTransportation() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState({ title: '', description: '' });
 
-  // Fetch current user for Pro access check
+  // Fetch current user
   const { data: user, refetch: refetchUser, isLoading: isLoadingUser } = useQuery({
     queryKey: ['user'],
     queryFn: async () => {
       const userData = await firebaseClient.auth.me();
       console.log('[SearchTransportation] Fetched user data:', userData);
-      
-      // Initialize credits if they don't exist
-      if (!userData.credits) {
-        console.log('[SearchTransportation] Initializing credits...');
-        await firebaseClient.auth.updateMe({
-          credits: {
-            ai_generations_remaining: 3,
-            pro_searches_remaining: 10,
-            last_reset_date: null
-          }
-        });
-        // Refetch user data
-        const updatedUserData = await firebaseClient.auth.me();
-        console.log('[SearchTransportation] Credits initialized:', updatedUserData);
-        return updatedUserData;
-      }
       return userData;
     },
     staleTime: Infinity,
-    refetchOnMount: true, // Always refetch on mount to get latest data
+    refetchOnMount: true,
   });
-  
-  // Force refetch if user exists but credits don't
-  React.useEffect(() => {
-    if (user && !user.credits) {
-      console.log('[SearchTransportation] User missing credits, forcing refetch...');
-      refetchUser();
-    }
-  }, [user, refetchUser]);
-
-  // Check if user has pro access OR has remaining credits
-  // Use useState to ensure the value triggers re-renders
-  // Initialize to true (optimistic) to prevent flash of disabled button
-  const [canUseProSearch, setCanUseProSearch] = React.useState(true);
-  
-  React.useEffect(() => {
-    console.log('[SearchTransportation] Raw user object:', user);
-    console.log('[SearchTransportation] user.credits:', user?.credits);
-    console.log('[SearchTransportation] user.credits.pro_searches_remaining:', user?.credits?.pro_searches_remaining);
-    console.log('[SearchTransportation] Type:', typeof user?.credits?.pro_searches_remaining);
-    
-    const proStatus = user?.pro_subscription?.status;
-    const hasProAccess = proStatus === 'pro' || proStatus === 'trial';
-    const creditsValue = user?.credits?.pro_searches_remaining;
-    const hasCredits = (creditsValue || 0) > 0;
-    
-    // TEMPORARY: Always set to true for debugging
-    const result = true; // was: isLoadingUser || hasProAccess || hasCredits;
-    
-    console.log('[SearchTransportation] User credit check:', {
-      userId: user?.id,
-      isLoadingUser,
-      proStatus,
-      hasProAccess,
-      creditsValue,
-      pro_searches_remaining: user?.credits?.pro_searches_remaining,
-      hasCredits,
-      calculation: `(${creditsValue} || 0) > 0 = ${hasCredits}`,
-      result_HARDCODED_TRUE: result
-    });
-    
-    setCanUseProSearch(result);
-  }, [user, isLoadingUser]);
-  
-  const proStatus = user?.pro_subscription?.status;
-  const hasProAccess = proStatus === 'pro' || proStatus === 'trial';
-  const hasCredits = (user?.credits?.pro_searches_remaining || 0) > 0;
 
   const { data: trip } = useQuery({
     queryKey: ['trip', tripId],
@@ -263,19 +201,6 @@ export default function SearchTransportation() {
     }
   };
 
-  const decrementSearchCredit = async () => {
-    const credits = user?.credits;
-    if (credits && credits.pro_searches_remaining > 0) {
-  await firebaseClient.auth.updateMe({
-        credits: {
-          ...credits,
-          pro_searches_remaining: credits.pro_searches_remaining - 1
-        }
-      });
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-    }
-  };
-
   const handleSearch = async () => {
     setIsSearching(true);
     setSearchResults([]);
@@ -288,11 +213,6 @@ export default function SearchTransportation() {
           setSearchError("Amadeus search is currently only supported for flights. Please switch to 'Regular Search' for other transportation types.");
           setIsSearching(false);
           return;
-        }
-
-        // Decrement credit for free users using Pro search if they have remaining credits
-        if (!hasProAccess && user?.credits?.pro_searches_remaining > 0) {
-          await decrementSearchCredit();
         }
 
         // Extract IATA codes from locations
@@ -718,61 +638,34 @@ Return 5-8 car rental options if available.`;
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold text-gray-700">Search Method</Label>
                   
-                  {/* Debug info */}
-                  <div className="text-xs text-gray-500 mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                    DEBUG: isLoadingUser={String(isLoadingUser)}, hasCredits={String(hasCredits)}, 
-                    credits={user?.credits?.pro_searches_remaining || 0}, canUse={String(canUseProSearch)}, 
-                    disabled={String(!canUseProSearch)}
-                  </div>
-                  
                   <div className="grid grid-cols-2 gap-2">
                     <Button
-                      key={`basic-search-${canUseProSearch}`}
                       type="button"
                       variant={!useAmadeus ? "default" : "outline"}
                       onClick={() => setUseAmadeus(false)}
                       className="w-full"
                     >
-                      🔍 Search
+                      🔍 AI Search
                     </Button>
-                    <div className="relative">
-                      <Button
-                        key={`pro-search-${canUseProSearch}`}
-                        type="button"
-                        variant={useAmadeus && canUseProSearch ? "default" : "outline"}
-                        onClick={() => {
-                            setUseAmadeus(true);
-                            // Ensure type is flight if Amadeus is selected
-                            if (searchParams.type !== 'flight') {
-                                setSearchParams(prev => ({ ...prev, type: 'flight' }));
-                            }
-                        }}
-                        disabled={true}
-                        className="w-full opacity-50 cursor-not-allowed"
-                      >
-                        ✨ Pro Search (Coming Soon)
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant={useAmadeus ? "default" : "outline"}
+                      onClick={() => {
+                        setUseAmadeus(true);
+                        // Ensure type is flight if Amadeus is selected
+                        if (searchParams.type !== 'flight') {
+                          setSearchParams(prev => ({ ...prev, type: 'flight' }));
+                        }
+                      }}
+                      disabled={searchParams.type !== 'flight'}
+                      className="w-full"
+                    >
+                      ✈️ Amadeus (Flights Only)
+                    </Button>
                   </div>
                 </div>
 
                 {/* Search button and error message */}
-                {/* Debug: Check why button is disabled */}
-                {console.log('[SearchTransportation] Button disabled check:', {
-                  from_location: searchParams.from_location,
-                  to_location: searchParams.to_location,
-                  departure_date: searchParams.departure_date,
-                  isSearching,
-                  useAmadeus,
-                  type: searchParams.type,
-                  canUseProSearch,
-                  disabled: !searchParams.from_location ||
-                    !searchParams.to_location ||
-                    !searchParams.departure_date ||
-                    isSearching ||
-                    (useAmadeus && searchParams.type !== 'flight') ||
-                    (useAmadeus && !canUseProSearch)
-                })}
                 <Button
                   onClick={handleSearch}
                   disabled={
@@ -780,8 +673,7 @@ Return 5-8 car rental options if available.`;
                     !searchParams.to_location ||
                     !searchParams.departure_date ||
                     isSearching ||
-                    (useAmadeus && searchParams.type !== 'flight') ||
-                    (useAmadeus && !canUseProSearch)
+                    (useAmadeus && searchParams.type !== 'flight')
                   }
                   className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
                 >
@@ -793,28 +685,10 @@ Return 5-8 car rental options if available.`;
                   ) : (
                     <>
                       <Search className="w-4 h-4 mr-2" />
-                      {useAmadeus ? 'Pro Search' : 'Search'}
-                      {useAmadeus && !hasProAccess && hasCredits && (
-                        <Badge className="ml-2 bg-white/20">
-                          {user.credits.pro_searches_remaining} left
-                        </Badge>
-                      )}
+                      {useAmadeus ? 'Amadeus Search' : 'Search'}
                     </>
                   )}
                 </Button>
-
-                {useAmadeus && !canUseProSearch && (
-                  <div className="text-center mt-4">
-                    <p className="text-xs text-amber-600 mb-2">
-                      You've used all your free Pro searches! 🎉
-                    </p>
-                    <Link to={createPageUrl("ProUpgrade")}>
-                      <Button size="sm" className="w-full bg-gradient-to-r from-blue-600 to-purple-600">
-                        Get 50% OFF Pro
-                      </Button>
-                    </Link>
-                  </div>
-                )}
 
                 {searchError && (
                   <Alert variant="destructive" className="mt-4">

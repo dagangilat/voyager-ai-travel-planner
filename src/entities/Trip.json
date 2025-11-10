@@ -38,8 +38,8 @@
     "budget_level": {
       "type": "string",
       "enum": [
-        "basic",
-        "fine",
+        "economy",
+        "premium",
         "luxury"
       ],
       "description": "Budget level preference"
@@ -47,9 +47,11 @@
     "tempo": {
       "type": "string",
       "enum": [
-        "relaxed",
-        "active",
-        "extreme"
+        "chill",
+        "adventure",
+        "culture",
+        "sports",
+        "mix"
       ],
       "description": "Trip tempo/pace preference"
     },

@@ -14,3 +14,8 @@ exports.searchGooglePlaces = require('./searchGooglePlaces').searchGooglePlaces;
 exports.searchGlobalDestinations = require('./searchGlobalDestinations').searchGlobalDestinations;
 exports.seedGlobalDestinations = require('./seedGlobalDestinations').seedGlobalDestinations;
 exports.exportDatabase = require('./exportDatabase').exportDatabase;
+
+// Email notification triggers
+exports.onTripCreated = require('./sendTripNotifications').onTripCreated;
+exports.onTripUpdated = require('./sendTripNotifications').onTripUpdated;
+exports.onTripDeleted = require('./sendTripNotifications').onTripDeleted;

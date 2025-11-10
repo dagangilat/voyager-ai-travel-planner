@@ -1,44 +1,50 @@
-
 import React, { useState } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { User, Mail, Phone, Plane, Sparkles, Check, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { User, Mail, Phone, Plane, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import LocationSearchInput from "../components/common/LocationSearchInput";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { TOPUPS, formatCurrency } from "@/lib/plans";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+// Common country codes for phone numbers
+const COUNTRY_CODES = [
+  { code: "+1", country: "US/CA" },
+  { code: "+44", country: "UK" },
+  { code: "+972", country: "IL" },
+  { code: "+33", country: "FR" },
+  { code: "+49", country: "DE" },
+  { code: "+39", country: "IT" },
+  { code: "+34", country: "ES" },
+  { code: "+61", country: "AU" },
+  { code: "+81", country: "JP" },
+  { code: "+86", country: "CN" },
+  { code: "+91", country: "IN" },
+];
 
 export default function Profile() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
-  const [showTopUpDialog, setShowTopUpDialog] = useState(false);
-  const [selectedTopUpId, setSelectedTopUpId] = useState(null);
-  // Removed showSuccessDialog state as it's no longer needed
 
   const { data: user, isLoading } = useQuery({
     queryKey: ['user'],
     queryFn: () => firebaseClient.auth.me(),
-    staleTime: 5 * 60 * 1000, // 5 minutes - allow refetch after updates
+    staleTime: 5 * 60 * 1000,
   });
 
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
+    country_code: '+1',
     mobile_phone: '',
     home_airport: '',
     home_airport_display: ''
@@ -46,10 +52,23 @@ export default function Profile() {
 
   React.useEffect(() => {
     if (user) {
+      // Parse country code from mobile_phone if it exists
+      let countryCode = '+1';
+      let phoneNumber = user.mobile_phone || '';
+      
+      if (phoneNumber) {
+        const matchedCode = COUNTRY_CODES.find(c => phoneNumber.startsWith(c.code));
+        if (matchedCode) {
+          countryCode = matchedCode.code;
+          phoneNumber = phoneNumber.substring(countryCode.length).trim();
+        }
+      }
+
       setFormData({
         full_name: user.full_name || '',
         email: user.email || '',
-        mobile_phone: user.mobile_phone || '',
+        country_code: countryCode,
+        mobile_phone: phoneNumber,
         home_airport: user.home_airport || '',
         home_airport_display: user.home_airport_display || ''
       });
@@ -58,7 +77,14 @@ export default function Profile() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data) => {
-  await firebaseClient.auth.updateMe(data);
+      // Combine country code with phone number
+      const fullPhone = data.country_code + data.mobile_phone;
+      await firebaseClient.auth.updateMe({
+        full_name: data.full_name,
+        mobile_phone: fullPhone,
+        home_airport: data.home_airport,
+        home_airport_display: data.home_airport_display
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
@@ -66,20 +92,9 @@ export default function Profile() {
     },
   });
 
-  // Removed topUpCreditsMutation as the payment flow is now external
-
   const handleSave = () => {
     updateProfileMutation.mutate(formData);
   };
-
-  const handleTopUp = () => {
-    if (selectedTopUpId) {
-      navigate(createPageUrl(`Payment?topup=${selectedTopUpId}`));
-    }
-  };
-
-  const aiCredits = user?.credits?.ai_generations_remaining || 0;
-  const proSearchCredits = user?.credits?.pro_searches_remaining || 0;
 
   if (isLoading) {
     return (
@@ -88,6 +103,8 @@ export default function Profile() {
       </div>
     );
   }
+
+  const isFormValid = formData.full_name && formData.mobile_phone && formData.home_airport;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-4 md:p-8">
@@ -98,66 +115,8 @@ export default function Profile() {
           className="mb-8"
         >
           <h1 className="text-4xl font-bold text-gray-900 mb-2">My Profile</h1>
-          <p className="text-gray-600">Manage your account settings and preferences</p>
+          <p className="text-gray-600">Manage your account settings and travel preferences</p>
         </motion.div>
-
-        {/* AI Credits Status */}
-        <Card className="border-0 shadow-xl rounded-2xl mb-6 bg-gradient-to-br from-purple-50 to-blue-50">
-          <CardHeader className="border-b p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="text-2xl font-bold flex items-center gap-2">
-                  <Sparkles className="w-6 h-6 text-purple-600" />
-                  AI Credits
-                </CardTitle>
-                <CardDescription className="mt-1">Your available AI generations</CardDescription>
-              </div>
-              <Button
-                onClick={() => setShowTopUpDialog(true)}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-              >
-                Top Up Credits
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl p-6 shadow-md">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-600">AI Trip Generations</span>
-                  <Sparkles className="w-5 h-5 text-purple-600" />
-                </div>
-                <div className="text-4xl font-bold text-gray-900 mb-2">{aiCredits}</div>
-                <p className="text-sm text-gray-500">
-                  {aiCredits === 0 && "Out of credits - top up to continue"}
-                  {aiCredits > 0 && aiCredits <= 3 && "Running low - consider topping up"}
-                  {aiCredits > 3 && "You have plenty of credits"}
-                </p>
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-md">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-600">Pro Searches</span>
-                  <Plane className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="text-4xl font-bold text-gray-900 mb-2">{proSearchCredits}</div>
-                <p className="text-sm text-gray-500">
-                  {proSearchCredits === 0 && "Out of searches - upgrade to Pro for unlimited"}
-                  {proSearchCredits > 0 && `${proSearchCredits} Pro searches remaining`}
-                </p>
-                <div className="mt-4">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                    onClick={() => setShowTopUpDialog(true)}
-                  >
-                    Top up now
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Profile Information */}
         <Card className="border-0 shadow-xl rounded-2xl">
@@ -177,13 +136,28 @@ export default function Profile() {
                   <Button
                     onClick={() => {
                       setIsEditing(false);
-                      setFormData({
-                        full_name: user.full_name || '',
-                        email: user.email || '',
-                        mobile_phone: user.mobile_phone || '',
-                        home_airport: user.home_airport || '',
-                        home_airport_display: user.home_airport_display || ''
-                      });
+                      // Reset form data
+                      if (user) {
+                        let countryCode = '+1';
+                        let phoneNumber = user.mobile_phone || '';
+                        
+                        if (phoneNumber) {
+                          const matchedCode = COUNTRY_CODES.find(c => phoneNumber.startsWith(c.code));
+                          if (matchedCode) {
+                            countryCode = matchedCode.code;
+                            phoneNumber = phoneNumber.substring(countryCode.length).trim();
+                          }
+                        }
+
+                        setFormData({
+                          full_name: user.full_name || '',
+                          email: user.email || '',
+                          country_code: countryCode,
+                          mobile_phone: phoneNumber,
+                          home_airport: user.home_airport || '',
+                          home_airport_display: user.home_airport_display || ''
+                        });
+                      }
                     }}
                     variant="outline"
                   >
@@ -191,7 +165,7 @@ export default function Profile() {
                   </Button>
                   <Button
                     onClick={handleSave}
-                    disabled={updateProfileMutation.isPending}
+                    disabled={updateProfileMutation.isPending || !isFormValid}
                     className="bg-gradient-to-r from-blue-600 to-blue-700"
                   >
                     {updateProfileMutation.isPending ? (
@@ -209,20 +183,6 @@ export default function Profile() {
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="full_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Full Name
-              </Label>
-              <Input
-                id="full_name"
-                value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                disabled={!isEditing}
-                className="border-gray-200 focus:border-blue-500"
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <Mail className="w-4 h-4" />
                 Email
@@ -237,25 +197,61 @@ export default function Profile() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mobile_phone" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                Mobile Phone <span className="text-gray-400 text-xs">(Optional)</span>
+              <Label htmlFor="full_name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Full Name <span className="text-red-500">*</span>
               </Label>
               <Input
-                id="mobile_phone"
-                value={formData.mobile_phone}
-                onChange={(e) => setFormData({ ...formData, mobile_phone: e.target.value })}
+                id="full_name"
+                value={formData.full_name}
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                 disabled={!isEditing}
-                placeholder="+1 234 567 8900"
+                placeholder="Enter your full name"
                 className="border-gray-200 focus:border-blue-500"
               />
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="mobile_phone" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Phone className="w-4 h-4" />
+                Mobile Phone <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex gap-2">
+                <Select
+                  value={formData.country_code}
+                  onValueChange={(value) => setFormData({ ...formData, country_code: value })}
+                  disabled={!isEditing}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRY_CODES.map((item) => (
+                      <SelectItem key={item.code} value={item.code}>
+                        {item.code} {item.country}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="mobile_phone"
+                  value={formData.mobile_phone}
+                  onChange={(e) => setFormData({ ...formData, mobile_phone: e.target.value })}
+                  disabled={!isEditing}
+                  placeholder="234 567 8900"
+                  className="flex-1 border-gray-200 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <Plane className="w-4 h-4" />
-                Home Airport <span className="text-gray-400 text-xs">(Optional)</span>
+                Home Airport <span className="text-red-500">*</span>
               </Label>
+              <p className="text-xs text-gray-500 mb-2">
+                This will be used as the default departure airport when creating trips
+              </p>
               {isEditing ? (
                 <LocationSearchInput
                   id="home_airport"
@@ -278,87 +274,17 @@ export default function Profile() {
                 />
               )}
             </div>
+
+            {isEditing && !isFormValid && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-sm text-amber-800">
+                  <span className="font-semibold">Required fields:</span> Please fill in all required fields marked with *
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Top Up Dialog */}
-      <Dialog open={showTopUpDialog} onOpenChange={setShowTopUpDialog}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-purple-600" />
-              Top Up AI Credits
-            </DialogTitle>
-            <DialogDescription className="text-base pt-2">
-              Choose a bundle. Each top-up adds AI credits and bonus Pro searches. Credits never expire!
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 py-4">
-            {TOPUPS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setSelectedTopUpId(t.id)}
-                className={`p-4 rounded-xl border-2 transition-all ${
-                  selectedTopUpId === t.id
-                    ? 'border-purple-600 bg-purple-50'
-                    : 'border-gray-200 hover:border-purple-300'
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      selectedTopUpId === t.id ? 'bg-purple-600' : 'bg-gray-100'
-                    }`}>
-                      {selectedTopUpId === t.id ? (
-                        <Check className="w-5 h-5 text-white" />
-                      ) : (
-                        <Sparkles className={`w-5 h-5 ${selectedTopUpId === t.id ? 'text-white' : 'text-gray-400'}`} />
-                      )}
-                    </div>
-                    <div className="text-left">
-                      <p className="font-bold text-lg">{t.ai_generations_add} AI + {t.pro_searches_add} Pro</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {t.original_price && (
-                          <span className="text-xs line-through text-gray-400">
-                            {formatCurrency(t.original_price)}
-                          </span>
-                        )}
-                        <span className="text-sm font-semibold text-purple-700">
-                          {formatCurrency(t.price)}
-                        </span>
-                        {t.discount_percent && (
-                          <Badge className="bg-red-100 text-red-700 text-[11px]">
-                            -{t.discount_percent}%
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {formatCurrency(t.price_per_ai_generation)} per AI credit
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-xl text-gray-900">{formatCurrency(t.price)}</p>
-                    {t.popular && (
-                      <Badge className="bg-green-100 text-green-700">Most Popular</Badge>
-                    )}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={handleTopUp}
-              disabled={!selectedTopUpId}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-            >
-              Continue to Payment
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

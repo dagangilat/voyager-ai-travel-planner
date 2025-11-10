@@ -1,8 +1,11 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Plane, Calendar, Home, Menu, LogOut, User, Receipt } from "lucide-react";
+import { Plane, Calendar, Home, Menu, LogOut, User, FileText, HelpCircle } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { firebaseClient } from "@/api/firebaseClient";
+import TermsAgreementDialog from "@/components/TermsAgreementDialog";
 import {
   Sidebar,
   SidebarContent,
@@ -35,15 +38,55 @@ const navigationItems = [
     icon: User,
   },
   {
-    title: "Billing",
-    url: createPageUrl("Billing"),
-    icon: Receipt,
+    title: "Help",
+    url: createPageUrl("Help"),
+    icon: HelpCircle,
   },
 ];
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const queryClient = useQueryClient();
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
+
+  // Check if user needs to accept terms
+  const { data: userProfile } = useQuery({
+    queryKey: ['user'],
+    queryFn: async () => {
+      return await firebaseClient.auth.me();
+    },
+    enabled: !!user,
+    staleTime: Infinity,
+  });
+
+  useEffect(() => {
+    if (userProfile && !userProfile.terms_accepted) {
+      setShowTermsDialog(true);
+    }
+  }, [userProfile]);
+
+  const acceptTermsMutation = useMutation({
+    mutationFn: async () => {
+      await firebaseClient.auth.updateMe({
+        terms_accepted: true,
+        terms_accepted_at: new Date().toISOString(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      setShowTermsDialog(false);
+    },
+  });
+
+  const handleAcceptTerms = async () => {
+    await acceptTermsMutation.mutateAsync();
+  };
+
+  const handleViewTerms = () => {
+    navigate(createPageUrl("Terms"));
+  };
 
   return (
     <SidebarProvider>
@@ -97,6 +140,27 @@ export default function Layout({ children, currentPageName }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-3">
+                Legal
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={handleViewTerms}
+                      className="hover:bg-blue-50 hover:text-blue-700 transition-all duration-300 rounded-xl mb-1"
+                    >
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <FileText className="w-5 h-5" />
+                        <span className="font-medium">Terms of Service</span>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
           </SidebarContent>
 
           <SidebarFooter className="border-t border-gray-200 p-4">
@@ -143,6 +207,11 @@ export default function Layout({ children, currentPageName }) {
           </div>
         </main>
       </div>
+
+      <TermsAgreementDialog 
+        open={showTermsDialog} 
+        onAccept={handleAcceptTerms}
+      />
     </SidebarProvider>
   );
 }

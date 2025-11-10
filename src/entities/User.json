@@ -49,6 +49,41 @@
       "type": "boolean",
       "default": false,
       "description": "Whether 50% discount was offered"
+    },
+    "terms_accepted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user accepted terms of service"
+    },
+    "terms_accepted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When user accepted terms"
+    },
+    "email_notifications": {
+      "type": "object",
+      "properties": {
+        "trip_created": {
+          "type": "boolean",
+          "default": true,
+          "description": "Send email when trip is created"
+        },
+        "trip_updated": {
+          "type": "boolean",
+          "default": true,
+          "description": "Send email when trip is updated"
+        },
+        "trip_deleted": {
+          "type": "boolean",
+          "default": true,
+          "description": "Send email when trip is deleted"
+        }
+      },
+      "default": {
+        "trip_created": true,
+        "trip_updated": true,
+        "trip_deleted": true
+      }
     }
   },
   "name": "User",
