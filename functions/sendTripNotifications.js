@@ -96,37 +96,55 @@ const generateTripItineraryHTML = (trip, destinations) => {
 exports.onTripCreated = functions.firestore
   .document('trips/{tripId}')
   .onCreate(async (snap, context) => {
+    functions.logger.info('🔔 onTripCreated trigger fired!', { tripId: context.params.tripId });
+    
     const trip = snap.data();
     const tripId = context.params.tripId;
     trip.id = tripId;
 
+    functions.logger.info('Trip data:', { 
+      tripId, 
+      tripName: trip.name, 
+      userId: trip.user_id 
+    });
+
     try {
       // Get user info
+      functions.logger.info('Fetching user document...', { userId: trip.user_id });
       const userDoc = await admin.firestore().collection('users').doc(trip.user_id).get();
       if (!userDoc.exists) {
-        functions.logger.warn('User not found:', trip.user_id);
+        functions.logger.warn('❌ User not found:', trip.user_id);
         return null;
       }
 
+      functions.logger.info('✅ User document found');
       const user = userDoc.data();
       
       // Check if user wants this notification (default to true if not set)
       const emailNotifications = user.email_notifications || {};
+      functions.logger.info('Email notification preferences:', emailNotifications);
+      
       if (emailNotifications.trip_created === false) {
         functions.logger.info('User has disabled trip_created notifications');
         return null;
       }
 
+      functions.logger.info('✅ Notification preferences OK, proceeding to send email');
+
       // Get user email from Firebase Auth
+      functions.logger.info('Getting user auth info...');
       const userAuth = await admin.auth().getUser(trip.user_id);
       const email = userAuth.email;
 
       if (!email) {
-        functions.logger.warn('No email found for user:', trip.user_id);
+        functions.logger.warn('❌ No email found for user:', trip.user_id);
         return null;
       }
 
+      functions.logger.info('✅ User email found:', email);
+
       // Get destinations
+      functions.logger.info('Fetching destinations...');
       const destinationsSnapshot = await admin.firestore()
         .collection('destinations')
         .where('trip_id', '==', tripId)
@@ -134,24 +152,37 @@ exports.onTripCreated = functions.firestore
         .get();
       
       const destinations = destinationsSnapshot.docs.map(doc => doc.data());
+      functions.logger.info(`Found ${destinations.length} destinations`);
 
       const htmlContent = generateTripItineraryHTML(trip, destinations);
 
       // Initialize Resend with API key
+      functions.logger.info('Initializing Resend...');
       const resend = new Resend(getResendApiKey());
 
+      functions.logger.info('Sending email...', { to: email, from: 'Voyager <onboarding@resend.dev>' });
+      
       // Send email using Resend
-      await resend.emails.send({
+      const result = await resend.emails.send({
         from: 'Voyager <onboarding@resend.dev>',
         to: email,
         subject: `🎉 Your trip "${trip.name}" has been created!`,
         html: htmlContent,
       });
 
-      functions.logger.info('Email notification sent successfully for trip creation:', tripId);
+      functions.logger.info('✅ Email sent successfully!', { 
+        result,
+        tripId, 
+        to: email 
+      });
+      
       return null;
     } catch (error) {
-      functions.logger.error('Error sending trip creation email:', error);
+      functions.logger.error('❌ Error sending trip creation email:', {
+        error: error.message,
+        stack: error.stack,
+        tripId: context.params.tripId
+      });
       return null;
     }
   });
