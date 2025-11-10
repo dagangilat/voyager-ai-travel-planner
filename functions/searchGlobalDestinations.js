@@ -21,16 +21,14 @@ async function searchLocalDestinations(query, limit = 10) {
   const queryLower = query.toLowerCase().trim();
   
   try {
-    // Query Firestore with multiple strategies
-    const results = [];
-    
-    // Strategy 1: Exact prefix match on city name (case-insensitive)
+    // Strategy 1: Search using search_terms array (fast, indexed)
     const cityQuery = await db.collection('GlobalDestinations')
       .where('search_terms', 'array-contains', queryLower)
       .orderBy('popularity', 'desc')
-      .limit(limit)
+      .limit(limit * 2) // Get more to filter
       .get();
     
+    const results = [];
     cityQuery.forEach(doc => {
       const data = doc.data();
       results.push({
@@ -46,25 +44,31 @@ async function searchLocalDestinations(query, limit = 10) {
       });
     });
     
-    // If we have few results, try partial matching
-    if (results.length < 5) {
-      const allDocs = await db.collection('GlobalDestinations')
+    // If we have enough results, return them
+    if (results.length >= limit) {
+      return results
+        .sort((a, b) => b.popularity - a.popularity)
+        .slice(0, limit);
+    }
+    
+    // Strategy 2: Only if we have very few results, try partial matching (limited to 50 docs)
+    if (results.length < 3) {
+      const partialQuery = await db.collection('GlobalDestinations')
         .orderBy('popularity', 'desc')
-        .limit(200)
+        .limit(50) // Reduced from 200 to 50
         .get();
       
-      allDocs.forEach(doc => {
+      partialQuery.forEach(doc => {
         const data = doc.data();
         const alreadyIncluded = results.some(r => r.id === (data.id || doc.id));
         
         if (!alreadyIncluded) {
-          // Check if query matches any part of the destination
-          const cityMatch = data.city?.toLowerCase().includes(queryLower);
-          const countryMatch = data.country?.toLowerCase().includes(queryLower);
-          const codeMatch = data.code?.toLowerCase().includes(queryLower);
+          // Quick partial match check
           const nameMatch = data.name?.toLowerCase().includes(queryLower);
+          const cityMatch = data.city?.toLowerCase().startsWith(queryLower);
+          const codeMatch = data.code?.toLowerCase().startsWith(queryLower);
           
-          if (cityMatch || countryMatch || codeMatch || nameMatch) {
+          if (nameMatch || cityMatch || codeMatch) {
             results.push({
               id: data.id || doc.id,
               place_id: data.place_id || doc.id,

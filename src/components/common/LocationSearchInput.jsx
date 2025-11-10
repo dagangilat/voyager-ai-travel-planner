@@ -5,6 +5,10 @@ import { firebaseClient } from "@/api/firebaseClient";
 import { MapPin, Loader2, Navigation } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Cache for search results (10 minute TTL)
+const searchCache = new Map();
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
 export default function LocationSearchInput({ 
   value, 
   onChange, 
@@ -57,6 +61,17 @@ export default function LocationSearchInput({
       return;
     }
 
+    // Check cache first
+    const cacheKey = `${query.toLowerCase()}_${includeAirportCodes}`;
+    const cached = searchCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log('Using cached results for:', query);
+      setSuggestions(cached.results);
+      setShowSuggestions(true);
+      setSelectedIndex(-1);
+      return;
+    }
+
     setIsSearching(true);
 
     try {
@@ -81,6 +96,20 @@ export default function LocationSearchInput({
         source: place.source // 'local' or 'google'
       })).filter(loc => loc.name);
 
+      // Cache the results
+      searchCache.set(cacheKey, {
+        results: validLocations,
+        timestamp: Date.now()
+      });
+
+      // Clean old cache entries (keep only last 50)
+      if (searchCache.size > 50) {
+        const entries = Array.from(searchCache.entries());
+        entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
+        searchCache.clear();
+        entries.slice(0, 50).forEach(([key, value]) => searchCache.set(key, value));
+      }
+
       setSuggestions(validLocations);
       setShowSuggestions(true);
       setSelectedIndex(-1);
@@ -102,9 +131,10 @@ export default function LocationSearchInput({
       clearTimeout(searchTimeout.current);
     }
 
+    // Reduced debounce from 300ms to 150ms for faster response
     searchTimeout.current = setTimeout(() => {
       searchLocations(query);
-    }, 300);
+    }, 150);
   };
 
   const handleSelectSuggestion = (suggestion) => {
