@@ -1,24 +1,14 @@
 {
   "gemini_models": [
     {
+      "name": "Gemini 2.5 Flash",
+      "api_name": "gemini-2.5-flash",
+      "description": "Fast and efficient model."
+    },
+    {
       "name": "Gemini 2.0 Flash",
-      "api_name": "gemini-2.0-flash-exp",
-      "description": "Latest experimental flash model with best performance."
-    },
-    {
-      "name": "Gemini 1.5 Flash",
-      "api_name": "gemini-1.5-flash",
-      "description": "Fast and efficient model for most tasks."
-    },
-    {
-      "name": "Gemini 1.5 Pro",
-      "api_name": "gemini-1.5-pro",
-      "description": "Most capable model for complex tasks."
-    },
-    {
-      "name": "Gemini 1.0 Pro",
-      "api_name": "gemini-1.0-pro",
-      "description": "Stable and reliable model."
+      "api_name": "gemini-2.0-flash",
+      "description": "Reliable flash model."
     }
   ]
 }

@@ -1,43 +1,52 @@
 const functions = require('firebase-functions');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const geminiModelsData = require('./gemini-models.json');
-const cors = require('cors')({ origin: true });
 
 /**
  * Invoke LLM for AI trip generation
  * Supports Google Gemini API
  */
 exports.invokeLLM = functions.region('europe-west1').https.onRequest(async (req, res) => {
-  return cors(req, res, async () => {
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
+  // CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Max-Age', '3600');
+    return res.status(204).send('');
+  }
 
-    try {
-      const { prompt, response_json_schema, add_context_from_internet } = req.body;
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { prompt, response_json_schema, add_context_from_internet } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    // Get Gemini API keys from environment (only check the keys we actually have)
+    // Get Gemini API keys from environment (support multiple keys with fallback)
     const apiKeys = [
       process.env.GEMINI_API_KEY,
       process.env.GEMINI_API_KEY_1,
-      process.env.GEMINI_API_KEY_2
-    ].filter(Boolean);
+      process.env.GEMINI_API_KEY_2,
+      functions.config().gemini?.api_key
+    ].filter(Boolean); // Remove undefined/null values
     
-    // Remove duplicates
-    const uniqueKeys = [...new Set(apiKeys)];
-    
-    if (uniqueKeys.length === 0) {
+    if (apiKeys.length === 0) {
       functions.logger.error('No GEMINI_API_KEY configured');
       return res.status(500).json({ 
         error: 'LLM service not configured. Please set GEMINI_API_KEY.' 
       });
     }
 
-    functions.logger.info(`Available API keys: ${uniqueKeys.length}`);
+    functions.logger.info(`Available API keys: ${apiKeys.length}`);
+
+    // Initialize the Google Generative AI client
+    const genAI = new GoogleGenerativeAI(geminiApiKey);
     
     // List of models to try in order (excluding image generation model)
     const modelsToTry = geminiModelsData.gemini_models
@@ -48,7 +57,7 @@ exports.invokeLLM = functions.region('europe-west1').https.onRequest(async (req,
     let result = null;
     
     // Try each API key with each model
-    for (const apiKey of uniqueKeys) {
+    for (const apiKey of apiKeys) {
       const genAI = new GoogleGenerativeAI(apiKey);
       const apiKeyPreview = `${apiKey.substring(0, 10)}...`;
       
@@ -170,5 +179,4 @@ exports.invokeLLM = functions.region('europe-west1').https.onRequest(async (req,
       details: error.status === 429 ? 'Rate limit exceeded. Free tier has strict limits. Consider upgrading your Gemini API key.' : undefined
     });
   }
-  });
 });
