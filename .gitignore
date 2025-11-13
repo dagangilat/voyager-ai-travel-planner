@@ -41,3 +41,5 @@ home/
 
 # Firebase deployment cache
 .firebase/
+# Service account backups
+service-account.json.*
