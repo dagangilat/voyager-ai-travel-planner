@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clearing Cache...</title>
+  <style>
+    body { font-family: Arial; text-align: center; padding: 50px; }
+    .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; 
+               border-radius: 50%; width: 40px; height: 40px; 
+               animation: spin 1s linear infinite; margin: 20px auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <h1>Clearing Browser Cache...</h1>
+  <div class="spinner"></div>
+  <p>Please wait while we clear your cached files...</p>
+  <script>
+    // Clear service workers
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(registration => registration.unregister());
+      });
+    }
+    
+    // Clear caches
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => caches.delete(name));
+      });
+    }
+    
+    // Redirect after 2 seconds
+    setTimeout(() => {
+      window.location.href = '/?cache=' + Date.now();
+    }, 2000);
+  </script>
+</body>
+</html>
