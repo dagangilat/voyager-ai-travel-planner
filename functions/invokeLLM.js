@@ -28,25 +28,24 @@ exports.invokeLLM = functions.region('europe-west1').https.onRequest(async (req,
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    // Get Gemini API keys from environment (support multiple keys with fallback)
+    // Get Gemini API keys from environment (only check the keys we actually have)
     const apiKeys = [
       process.env.GEMINI_API_KEY,
       process.env.GEMINI_API_KEY_1,
-      process.env.GEMINI_API_KEY_2,
-      functions.config().gemini?.api_key
-    ].filter(Boolean); // Remove undefined/null values
+      process.env.GEMINI_API_KEY_2
+    ].filter(Boolean);
     
-    if (apiKeys.length === 0) {
+    // Remove duplicates
+    const uniqueKeys = [...new Set(apiKeys)];
+    
+    if (uniqueKeys.length === 0) {
       functions.logger.error('No GEMINI_API_KEY configured');
       return res.status(500).json({ 
         error: 'LLM service not configured. Please set GEMINI_API_KEY.' 
       });
     }
 
-    functions.logger.info(`Available API keys: ${apiKeys.length}`);
-
-    // Initialize the Google Generative AI client
-    const genAI = new GoogleGenerativeAI(geminiApiKey);
+    functions.logger.info(`Available API keys: ${uniqueKeys.length}`);
     
     // List of models to try in order (excluding image generation model)
     const modelsToTry = geminiModelsData.gemini_models
@@ -57,7 +56,7 @@ exports.invokeLLM = functions.region('europe-west1').https.onRequest(async (req,
     let result = null;
     
     // Try each API key with each model
-    for (const apiKey of apiKeys) {
+    for (const apiKey of uniqueKeys) {
       const genAI = new GoogleGenerativeAI(apiKey);
       const apiKeyPreview = `${apiKey.substring(0, 10)}...`;
       

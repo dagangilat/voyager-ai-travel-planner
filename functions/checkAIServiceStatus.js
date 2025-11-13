@@ -11,16 +11,19 @@ exports.checkAIServiceStatus = functions.region('europe-west1').https.onRequest(
     try {
       functions.logger.info('checkAIServiceStatus called');
     
-      // Get all API keys
+      // Get all API keys from environment (only check the 2 keys we actually have)
       const apiKeys = [
         process.env.GEMINI_API_KEY,
         process.env.GEMINI_API_KEY_1,
-        process.env.GEMINI_API_KEY_2,
+        process.env.GEMINI_API_KEY_2
       ].filter(Boolean);
       
-      functions.logger.info('Found API keys:', { count: apiKeys.length });
+      // Remove duplicates
+      const uniqueKeys = [...new Set(apiKeys)];
+      
+      functions.logger.info('Found API keys:', { count: uniqueKeys.length });
 
-      if (apiKeys.length === 0) {
+      if (uniqueKeys.length === 0) {
         return res.json({
           status: 'unavailable',
           message: 'No API keys configured',
@@ -34,14 +37,14 @@ exports.checkAIServiceStatus = functions.region('europe-west1').https.onRequest(
       let workingKeys = 0;
       const keyStatuses = [];
 
-      for (let i = 0; i < apiKeys.length; i++) {
-        const apiKey = apiKeys[i];
+      for (let i = 0; i < uniqueKeys.length; i++) {
+        const apiKey = uniqueKeys[i];
         const keyPreview = `Key ${i + 1} (${apiKey.substring(0, 10)}...)`;
         
         try {
           const genAI = new GoogleGenerativeAI(apiKey);
           const model = genAI.getGenerativeModel({ 
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash-latest',
             generationConfig: {
               temperature: 0.1,
               maxOutputTokens: 10
@@ -64,7 +67,7 @@ exports.checkAIServiceStatus = functions.region('europe-west1').https.onRequest(
             keyStatuses.push({
               key: keyPreview,
               status: 'working',
-              model: 'gemini-2.5-flash'
+              model: 'gemini-1.5-flash'
             });
           } else {
             keyStatuses.push({
@@ -91,11 +94,11 @@ exports.checkAIServiceStatus = functions.region('europe-west1').https.onRequest(
 
       if (workingKeys > 0) {
         overallStatus = 'available';
-        message = `AI service is available (${workingKeys}/${apiKeys.length} keys working)`;
+        message = `AI service is available (${workingKeys}/${uniqueKeys.length} keys working)`;
       } else {
         // Check if all keys have quota issues
         const quotaErrors = keyStatuses.filter(k => k.status === 'quota_exceeded').length;
-        if (quotaErrors === apiKeys.length) {
+        if (quotaErrors === uniqueKeys.length) {
           overallStatus = 'quota_exceeded';
           message = 'AI service quota exceeded. Please try again later.';
         }
@@ -104,7 +107,7 @@ exports.checkAIServiceStatus = functions.region('europe-west1').https.onRequest(
       return res.json({
         status: overallStatus,
         message,
-        availableKeys: apiKeys.length,
+        availableKeys: uniqueKeys.length,
         workingKeys,
         keys: keyStatuses,
         timestamp: new Date().toISOString()
