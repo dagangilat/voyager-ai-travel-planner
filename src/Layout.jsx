@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { firebaseClient } from "@/api/firebaseClient";
 import TermsAgreementDialog from "@/components/TermsAgreementDialog";
 import { loadDestinations } from "@/services/destinationCache";
+import { AIServiceStatus } from "@/components/common/AIServiceStatus";
 import {
   Sidebar,
   SidebarContent,
@@ -174,6 +175,9 @@ export default function Layout({ children, currentPageName }) {
           <SidebarFooter className="border-t border-gray-200 p-4">
             {user && (
               <div className="space-y-3">
+                {/* AI Service Status above user info */}
+                <AIServiceStatus />
+                
                 <div className="flex items-center gap-3 px-2">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
                     <span className="text-blue-700 font-semibold text-sm">

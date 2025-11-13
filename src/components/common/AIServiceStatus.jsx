@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, XCircle, RefreshCw } from 'lucide-react';
 import { functionsService } from '@/services/functions';
 
 /**
- * AI Service Status Indicator
+ * AI Service Status Indicator - Compact version for sidebar
  * Shows the current status of the AI Trip generation service
  */
 export const AIServiceStatus = () => {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     checkStatus();
@@ -22,6 +23,7 @@ export const AIServiceStatus = () => {
 
   const checkStatus = async () => {
     try {
+      setRefreshing(true);
       const response = await functionsService.invoke('checkAIServiceStatus', {});
       setStatus(response);
       setLoading(false);
@@ -32,6 +34,8 @@ export const AIServiceStatus = () => {
         message: 'Unable to check service status'
       });
       setLoading(false);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -39,45 +43,49 @@ export const AIServiceStatus = () => {
     return null; // Don't show anything while loading
   }
 
-  // Get status styling
+  // Get status styling - using calmer blue colors
   const getStatusConfig = () => {
     switch (status.status) {
       case 'available':
         return {
-          bgColor: 'bg-green-50',
-          borderColor: 'border-green-200',
-          textColor: 'text-green-700',
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-200',
+          textColor: 'text-blue-700',
           icon: CheckCircle,
-          iconColor: 'text-green-500',
-          dotColor: 'bg-green-500'
+          iconColor: 'text-blue-500',
+          dotColor: 'bg-blue-500',
+          label: 'Available'
         };
       case 'quota_exceeded':
         return {
-          bgColor: 'bg-yellow-50',
-          borderColor: 'border-yellow-200',
-          textColor: 'text-yellow-800',
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-300',
+          textColor: 'text-blue-800',
           icon: Clock,
-          iconColor: 'text-yellow-500',
-          dotColor: 'bg-yellow-500'
+          iconColor: 'text-blue-600',
+          dotColor: 'bg-blue-400',
+          label: 'Try again in few minutes'
         };
       case 'unavailable':
       case 'error':
         return {
-          bgColor: 'bg-red-50',
-          borderColor: 'border-red-200',
-          textColor: 'text-red-700',
-          icon: XCircle,
-          iconColor: 'text-red-500',
-          dotColor: 'bg-red-500'
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-300',
+          textColor: 'text-blue-800',
+          icon: AlertCircle,
+          iconColor: 'text-blue-600',
+          dotColor: 'bg-blue-400',
+          label: 'Try again in few minutes'
         };
       default:
         return {
-          bgColor: 'bg-gray-50',
-          borderColor: 'border-gray-200',
-          textColor: 'text-gray-700',
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-200',
+          textColor: 'text-blue-700',
           icon: AlertCircle,
-          iconColor: 'text-gray-500',
-          dotColor: 'bg-gray-500'
+          iconColor: 'text-blue-500',
+          dotColor: 'bg-blue-400',
+          label: 'Checking...'
         };
     }
   };
@@ -86,7 +94,7 @@ export const AIServiceStatus = () => {
   const Icon = config.icon;
 
   return (
-    <div className={`rounded-lg border ${config.borderColor} ${config.bgColor} p-3 mb-4`}>
+    <div className={`rounded-lg border ${config.borderColor} ${config.bgColor} p-3 mb-3`}>
       <div 
         className="flex items-center justify-between cursor-pointer"
         onClick={() => setExpanded(!expanded)}
@@ -100,26 +108,25 @@ export const AIServiceStatus = () => {
             </span>
           </div>
           <Icon className={`h-4 w-4 ${config.iconColor}`} />
-          <span className={`text-sm font-medium ${config.textColor}`}>
-            AI Trip Generation
-          </span>
+          <div className="flex flex-col">
+            <span className={`text-xs font-medium ${config.textColor}`}>
+              AI Trip Generation
+            </span>
+            <span className={`text-xs ${config.textColor} opacity-80`}>
+              {config.label}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-xs ${config.textColor}`}>
-            {status.status === 'available' ? 'Available' : 
-             status.status === 'quota_exceeded' ? 'Quota Exceeded' : 
-             'Unavailable'}
-          </span>
-          <button
-            className={`text-xs ${config.textColor} hover:underline`}
-            onClick={(e) => {
-              e.stopPropagation();
-              checkStatus();
-            }}
-          >
-            Refresh
-          </button>
-        </div>
+        <button
+          className={`p-1 ${config.textColor} hover:bg-blue-100 rounded transition-colors ${refreshing ? 'animate-spin' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            checkStatus();
+          }}
+          disabled={refreshing}
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {expanded && (
@@ -144,9 +151,9 @@ export const AIServiceStatus = () => {
               {status.keys.map((key, idx) => (
                 <div key={idx} className="flex items-center gap-2 text-xs">
                   <span className={`h-1.5 w-1.5 rounded-full ${
-                    key.status === 'working' ? 'bg-green-500' : 
-                    key.status === 'quota_exceeded' ? 'bg-yellow-500' : 
-                    'bg-red-500'
+                    key.status === 'working' ? 'bg-blue-500' : 
+                    key.status === 'quota_exceeded' ? 'bg-blue-400' : 
+                    'bg-blue-300'
                   }`}></span>
                   <span className={config.textColor}>
                     {key.key}: {key.status}

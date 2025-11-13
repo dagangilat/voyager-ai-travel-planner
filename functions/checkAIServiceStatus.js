@@ -5,21 +5,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
  * Check AI Service Status
  * Returns the availability status of Gemini API
  */
-exports.checkAIServiceStatus = functions.region('europe-west1').https.onRequest(async (req, res) => {
-  // CORS headers
-  res.set('Access-Control-Allow-Origin', '*');
-  
-  if (req.method === 'OPTIONS') {
-    res.set('Access-Control-Allow-Methods', 'GET');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.set('Access-Control-Max-Age', '3600');
-    return res.status(204).send('');
-  }
-
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+exports.checkAIServiceStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
   try {
     // Get all API keys
     const apiKeys = [
@@ -29,12 +15,12 @@ exports.checkAIServiceStatus = functions.region('europe-west1').https.onRequest(
     ].filter(Boolean);
 
     if (apiKeys.length === 0) {
-      return res.status(200).json({
+      return {
         status: 'unavailable',
         message: 'No API keys configured',
         availableKeys: 0,
         workingKeys: 0
-      });
+      };
     }
 
     // Test each key with a simple prompt
@@ -109,21 +95,21 @@ exports.checkAIServiceStatus = functions.region('europe-west1').https.onRequest(
       }
     }
 
-    return res.status(200).json({
+    return {
       status: overallStatus,
       message,
       availableKeys: apiKeys.length,
       workingKeys,
       keys: keyStatuses,
       timestamp: new Date().toISOString()
-    });
+    };
 
   } catch (error) {
     functions.logger.error('Error checking AI service status:', error);
-    return res.status(200).json({
+    return {
       status: 'error',
       message: 'Failed to check AI service status',
       error: error.message
-    });
+    };
   }
 });
