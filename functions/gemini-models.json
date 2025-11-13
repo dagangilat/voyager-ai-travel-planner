@@ -1,64 +1,19 @@
 {
   "gemini_models": [
     {
-      "name": "Gemini 2.5 Pro",
-      "api_name": "gemini-2.5-pro",
-      "description": "Google's most advanced reasoning model for highly complex tasks."
-    },
-    {
-      "name": "Gemini 2.5 Flash",
-      "api_name": "gemini-2.5-flash",
-      "description": "A balanced model offering well-rounded capabilities and a strong price-performance ratio."
-    },
-    {
-      "name": "Gemini 2.5 Flash Image",
-      "api_name": "gemini-2.5-flash-image",
-      "description": "A variant of Flash 2.5 optimized for rapid image generation and conversational image editing."
-    },
-    {
-      "name": "Gemini 2.5 Flash-Lite",
-      "api_name": "gemini-2.5-flash-lite",
-      "description": "Google's most cost-effective model, designed for high-throughput, low-latency tasks."
-    },
-    {
-      "name": "Gemini 2.0 Flash",
-      "api_name": "gemini-2.0-flash",
-      "description": "An earlier multimodal model for general, everyday tasks."
-    },
-    {
-      "name": "Gemini 2.0 Flash-Lite",
-      "api_name": "gemini-2.0-flash-lite",
-      "description": "An earlier cost-optimized version of 2.0 Flash."
+      "name": "Gemini 1.5 Flash",
+      "api_name": "gemini-1.5-flash",
+      "description": "Fast and efficient model for most tasks."
     },
     {
       "name": "Gemini 1.5 Pro",
       "api_name": "gemini-1.5-pro",
-      "description": "A powerful midsized multimodal model known for its large context window."
-    },
-    {
-      "name": "Gemini 1.5 Flash",
-      "api_name": "gemini-1.5-flash",
-      "description": "An earlier smaller, faster version of 1.5 Pro."
-    },
-    {
-      "name": "Gemini 1.0 Ultra",
-      "api_name": "gemini-1.0-ultra",
-      "description": "The original Ultra model, designed for highly complex tasks (legacy)."
+      "description": "More capable model for complex tasks."
     },
     {
       "name": "Gemini 1.0 Pro",
       "api_name": "gemini-1.0-pro",
-      "description": "The original Pro model, designed for a wide range of tasks (legacy)."
-    },
-    {
-      "name": "Gemini 1.0 Nano",
-      "api_name": "gemini-1.0-nano",
-      "description": "The original Nano model, designed for efficient on-device tasks (legacy)."
-    },
-    {
-      "name": "Gemini Nano",
-      "api_name": "gemini-nano",
-      "description": "Models optimized for on-device applications, such as on the Pixel phone."
+      "description": "Legacy stable model."
     }
   ]
 }

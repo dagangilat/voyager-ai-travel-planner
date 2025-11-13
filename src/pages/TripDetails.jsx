@@ -648,7 +648,21 @@ Make realistic suggestions based on actual available services. Consider travel t
     },
     onError: (error) => {
       console.error("AI Generation Error:", error);
-      setErrorMessage(error.message || 'Failed to generate AI trip. Please try again.');
+      
+      // Provide user-friendly error messages
+      let userMessage = 'Unable to generate AI trip at this time.';
+      
+      if (error.message?.includes('overloaded') || error.message?.includes('503')) {
+        userMessage = '🤖 AI service is currently busy. Please try again in 2-3 minutes.';
+      } else if (error.message?.includes('404') || error.message?.includes('not found')) {
+        userMessage = '🤖 AI service is temporarily unavailable. Please try again in a few minutes.';
+      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('CORS')) {
+        userMessage = '🌐 Connection issue. Please refresh the page and try again.';
+      } else if (error.message) {
+        userMessage = `⚠️ ${error.message}`;
+      }
+      
+      setErrorMessage(userMessage);
       setShowErrorDialog(true);
     }
   });

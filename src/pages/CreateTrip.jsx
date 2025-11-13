@@ -400,6 +400,19 @@ Provide realistic, varied options at different price points. Use actual airline 
           setShowSuccessDialog(true);
         } catch (error) {
           console.error('AI generation error:', error);
+          
+          // Show user-friendly error message
+          let userMessage = 'AI generation had an issue, but your trip was created successfully!';
+          
+          if (error.message?.includes('overloaded') || error.message?.includes('503')) {
+            userMessage = 'Trip created! AI service is busy - you can use the "AI Trip" button later to generate details.';
+          } else if (error.message?.includes('404') || error.message?.includes('not found')) {
+            userMessage = 'Trip created! AI service is temporarily unavailable - try the "AI Trip" button in a few minutes.';
+          }
+          
+          // Show a toast or alert with the message
+          alert(userMessage);
+          
           // Still show success dialog even if AI fails - trip was created
           setAiProgress({ show: false, message: '' });
           setShowSuccessDialog(true);
