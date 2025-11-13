@@ -20,3 +20,6 @@ exports.exportDatabase = require('./exportDatabase').exportDatabase;
 exports.onTripCreated = require('./sendTripNotifications').onTripCreated;
 exports.onTripUpdated = require('./sendTripNotifications').onTripUpdated;
 exports.onTripDeleted = require('./sendTripNotifications').onTripDeleted;
+exports.onLodgingChanged = require('./sendTripNotifications').onLodgingChanged;
+exports.onTransportationChanged = require('./sendTripNotifications').onTransportationChanged;
+exports.onExperiencesChanged = require('./sendTripNotifications').onExperiencesChanged;

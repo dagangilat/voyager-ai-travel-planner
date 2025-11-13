@@ -413,3 +413,131 @@ exports.onTripDeleted = functions.region('europe-west1').firestore
       return null;
     }
   });
+
+// Helper function to send trip update email for item changes
+const sendTripUpdateEmail = async (tripId, itemType) => {
+  try {
+    functions.logger.info(`${itemType} changed for trip:`, tripId);
+    
+    // Get the trip
+    const tripDoc = await admin.firestore().collection('trips').doc(tripId).get();
+    
+    if (!tripDoc.exists) {
+      functions.logger.warn('Trip not found:', tripId);
+      return;
+    }
+    
+    const trip = tripDoc.data();
+    trip.id = tripId;
+    
+    // Get user info
+    const userDoc = await admin.firestore().collection('users').doc(trip.user_id).get();
+    if (!userDoc.exists) {
+      functions.logger.warn('User not found:', trip.user_id);
+      return;
+    }
+    
+    const user = userDoc.data();
+    
+    // Check if user wants trip update notifications
+    const emailNotifications = user.email_notifications || {};
+    if (emailNotifications.trip_updated === false) {
+      functions.logger.info('User has disabled trip_updated notifications');
+      return;
+    }
+    
+    // Get user email
+    const userAuth = await admin.auth().getUser(trip.user_id);
+    const email = userAuth.email;
+    
+    if (!email) {
+      functions.logger.warn('No email found for user:', trip.user_id);
+      return;
+    }
+    
+    // Get destinations
+    const destinationsSnapshot = await admin.firestore()
+      .collection('destinations')
+      .where('trip_id', '==', tripId)
+      .orderBy('order')
+      .get();
+    
+    const destinations = destinationsSnapshot.docs.map(doc => doc.data());
+    
+    const htmlContent = await generateTripItineraryHTML(trip, destinations, tripId);
+    
+    // Write email document to 'mail' collection
+    await admin.firestore().collection('mail').add({
+      to: email,
+      from: 'feedmyinfo@gmail.com',
+      message: {
+        subject: `✏️ Your trip "${trip.name}" has been updated`,
+        html: htmlContent,
+      },
+      metadata: {
+        tripId,
+        userId: trip.user_id,
+        type: 'trip_updated',
+        trigger: itemType,
+      },
+    });
+    
+    functions.logger.info(`Email document created for ${itemType} update:`, tripId);
+  } catch (error) {
+    functions.logger.error(`Error sending trip update email for ${itemType}:`, error);
+  }
+};
+
+// Trigger on lodging create/update/delete
+exports.onLodgingChanged = functions.region('europe-west1').firestore
+  .document('lodging/{lodgingId}')
+  .onWrite(async (change, context) => {
+    const lodgingAfter = change.after.exists ? change.after.data() : null;
+    const lodgingBefore = change.before.exists ? change.before.data() : null;
+    
+    const tripId = lodgingAfter?.trip_id || lodgingBefore?.trip_id;
+    
+    if (!tripId) {
+      functions.logger.warn('No trip_id found for lodging change');
+      return null;
+    }
+    
+    await sendTripUpdateEmail(tripId, 'lodging');
+    return null;
+  });
+
+// Trigger on transportation create/update/delete
+exports.onTransportationChanged = functions.region('europe-west1').firestore
+  .document('transportation/{transportationId}')
+  .onWrite(async (change, context) => {
+    const transportationAfter = change.after.exists ? change.after.data() : null;
+    const transportationBefore = change.before.exists ? change.before.data() : null;
+    
+    const tripId = transportationAfter?.trip_id || transportationBefore?.trip_id;
+    
+    if (!tripId) {
+      functions.logger.warn('No trip_id found for transportation change');
+      return null;
+    }
+    
+    await sendTripUpdateEmail(tripId, 'transportation');
+    return null;
+  });
+
+// Trigger on experiences create/update/delete
+exports.onExperiencesChanged = functions.region('europe-west1').firestore
+  .document('experiences/{experienceId}')
+  .onWrite(async (change, context) => {
+    const experienceAfter = change.after.exists ? change.after.data() : null;
+    const experienceBefore = change.before.exists ? change.before.data() : null;
+    
+    const tripId = experienceAfter?.trip_id || experienceBefore?.trip_id;
+    
+    if (!tripId) {
+      functions.logger.warn('No trip_id found for experience change');
+      return null;
+    }
+    
+    await sendTripUpdateEmail(tripId, 'experiences');
+    return null;
+  });
