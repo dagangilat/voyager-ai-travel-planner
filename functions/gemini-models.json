@@ -3,27 +3,12 @@
     {
       "name": "Gemini 2.5 Flash",
       "api_name": "gemini-2.5-flash",
-      "description": "A balanced model offering well-rounded capabilities and a strong price-performance ratio."
-    },
-    {
-      "name": "Gemini 2.5 Pro",
-      "api_name": "gemini-2.5-pro",
-      "description": "Google's most advanced reasoning model for highly complex tasks."
-    },
-    {
-      "name": "Gemini 1.5 Flash",
-      "api_name": "gemini-1.5-flash",
       "description": "Fast and efficient model."
     },
     {
-      "name": "Gemini 1.5 Pro",
-      "api_name": "gemini-1.5-pro",
-      "description": "More capable model for complex tasks."
-    },
-    {
-      "name": "Gemini 1.0 Pro",
-      "api_name": "gemini-1.0-pro",
-      "description": "Legacy stable model."
+      "name": "Gemini 2.0 Flash",
+      "api_name": "gemini-2.0-flash",
+      "description": "Reliable flash model."
     }
   ]
 }
