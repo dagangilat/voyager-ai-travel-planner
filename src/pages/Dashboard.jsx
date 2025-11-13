@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import TripCard from "../components/trips/TripCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AIServiceStatus } from "@/components/common/AIServiceStatus";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -94,6 +95,9 @@ export default function Dashboard() {
             New Trip
           </Button>
         </div>
+
+        {/* AI Service Status Indicator */}
+        <AIServiceStatus />
 
         {trips && trips.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

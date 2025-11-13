@@ -5,6 +5,7 @@ exports.findBookingUrl = require('./findBookingUrl').findBookingUrl;
 exports.geocodeLocation = require('./geocodeLocation').geocodeLocation;
 exports.getMyTrips = require('./getMyTrips').getMyTrips;
 exports.invokeLLM = require('./invokeLLM').invokeLLM;
+exports.checkAIServiceStatus = require('./checkAIServiceStatus').checkAIServiceStatus;
 exports.makeReservation = require('./makeReservation').makeReservation;
 exports.processPayment = require('./processPayment').processPayment;
 exports.searchAmadeusActivities = require('./searchAmadeusActivities').searchAmadeusActivities;
