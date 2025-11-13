@@ -1,7 +1,8 @@
 const functions = require('firebase-functions');
 const { db, admin } = require('./shared/admin');
+const { verifyAuthToken } = require('./shared/auth');
 
-exports.addDestinationToTrip = functions.https.onRequest(async (req, res) => {
+exports.addDestinationToTrip = functions.region('europe-west1').https.onRequest(async (req, res) => {
     // CORS headers
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -16,13 +17,6 @@ exports.addDestinationToTrip = functions.https.onRequest(async (req, res) => {
         return;
     }
 
-    // Verify authentication
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-    }
-
     const { trip_id, destination } = req.body;
     if (!trip_id || !destination) {
         res.status(400).json({ error: 'Missing required fields' });
@@ -30,6 +24,10 @@ exports.addDestinationToTrip = functions.https.onRequest(async (req, res) => {
     }
 
     try {
+        // Verify authentication
+        const decodedToken = await verifyAuthToken(req);
+        const userEmail = decodedToken.email;
+
         // First, verify the user has permission to edit this trip
         const tripDoc = await db.collection('trips').doc(trip_id).get();
         
@@ -39,7 +37,6 @@ exports.addDestinationToTrip = functions.https.onRequest(async (req, res) => {
         }
 
         const trip = tripDoc.data();
-        const userEmail = req.user.email; // Firebase Auth adds user to request
 
         // Check if user is owner or editor
         const isOwner = trip.created_by === userEmail;
@@ -70,6 +67,10 @@ exports.addDestinationToTrip = functions.https.onRequest(async (req, res) => {
         res.status(200).json(newDestination);
     } catch (error) {
         console.error('Error adding destination:', error);
-        res.status(500).json({ error: error.message });
+        if (error.message === 'No authorization header' || error.message === 'Invalid token') {
+            res.status(401).json({ error: 'Unauthorized' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
     }
 });

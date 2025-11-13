@@ -33,7 +33,7 @@ async function getAmadeusToken() {
   return data.access_token;
 }
 
-exports.searchAmadeusFlights = functions.https.onRequest(async (req, res) => {
+exports.searchAmadeusFlights = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // CORS
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');

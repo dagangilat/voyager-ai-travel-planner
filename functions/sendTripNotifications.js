@@ -24,24 +24,94 @@ const formatDate = (dateString) => {
   });
 };
 
-// Helper to generate trip itinerary HTML
-const generateTripItineraryHTML = (trip, destinations) => {
-  const destinationsHTML = destinations.map((dest, idx) => `
-    <div style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 8px;">
-      <h3 style="margin: 0 0 10px 0; color: #1e3a8a; font-size: 18px;">
-        📍 Destination ${idx + 1}: ${dest.location_name || dest.location}
-      </h3>
-      <p style="margin: 5px 0; color: #666;">
-        <strong>Arrival:</strong> ${formatDate(dest.arrival_date)}<br>
-        <strong>Duration:</strong> ${dest.nights} night${dest.nights !== 1 ? 's' : ''}
-      </p>
-      ${dest.purposes && dest.purposes.length > 0 ? `
+// Helper to generate trip itinerary HTML with daily plan
+const generateTripItineraryHTML = async (trip, destinations, tripId) => {
+  const db = admin.firestore();
+  
+  // Fetch lodging, transportation, and experiences for this trip
+  const [lodgingSnap, transportationSnap, experiencesSnap] = await Promise.all([
+    db.collection('lodging').where('trip_id', '==', tripId).get(),
+    db.collection('transportation').where('trip_id', '==', tripId).get(),
+    db.collection('experiences').where('trip_id', '==', tripId).get()
+  ]);
+  
+  const lodging = lodgingSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const transportation = transportationSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const experiences = experiencesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  
+  // Build daily plan by destination
+  const destinationsHTML = destinations.map((dest, idx) => {
+    const destLodging = lodging.filter(l => 
+      l.location === dest.location || l.location_display === dest.location_name
+    );
+    const destExperiences = experiences.filter(e => 
+      e.location === dest.location || e.location_display === dest.location_name
+    );
+    
+    const lodgingHTML = destLodging.length > 0 ? `
+      <div style="margin: 15px 0;">
+        <h4 style="color: #1e3a8a; font-size: 14px; margin: 10px 0;">🏨 Lodging Options:</h4>
+        ${destLodging.map(l => `
+          <div style="padding: 10px; background: white; border-radius: 6px; margin: 5px 0;">
+            <strong>${l.name}</strong> (${l.type || 'Hotel'})<br>
+            <span style="color: #666; font-size: 13px;">
+              Check-in: ${formatDate(l.check_in_date)} | Check-out: ${formatDate(l.check_out_date)}
+              ${l.price_per_night ? ` | $${l.price_per_night}/night` : ''}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+    
+    const experiencesHTML = destExperiences.length > 0 ? `
+      <div style="margin: 15px 0;">
+        <h4 style="color: #1e3a8a; font-size: 14px; margin: 10px 0;">🎯 Experiences & Activities:</h4>
+        ${destExperiences.map(e => `
+          <div style="padding: 10px; background: white; border-radius: 6px; margin: 5px 0;">
+            <strong>${e.name}</strong> (${e.category || 'Activity'})<br>
+            <span style="color: #666; font-size: 13px;">
+              ${e.date ? formatDate(e.date) : ''} ${e.duration ? `| ${e.duration}` : ''}
+              ${e.price ? ` | $${e.price}` : ''}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+    
+    return `
+      <div style="margin: 20px 0; padding: 20px; background: #f8f9fa; border-left: 4px solid #3b82f6; border-radius: 8px;">
+        <h3 style="margin: 0 0 10px 0; color: #1e3a8a; font-size: 18px;">
+          📍 Day ${idx + 1}: ${dest.location_name || dest.location}
+        </h3>
         <p style="margin: 5px 0; color: #666;">
-          <strong>Focus:</strong> ${dest.purposes.join(', ')}
+          <strong>Arrival:</strong> ${formatDate(dest.arrival_date)}<br>
+          <strong>Duration:</strong> ${dest.nights} night${dest.nights !== 1 ? 's' : ''}
         </p>
-      ` : ''}
-    </div>
-  `).join('');
+        ${dest.purposes && dest.purposes.length > 0 ? `
+          <p style="margin: 5px 0; color: #666;">
+            <strong>Focus:</strong> ${dest.purposes.join(', ')}
+          </p>
+        ` : ''}
+        ${lodgingHTML}
+        ${experiencesHTML}
+      </div>
+    `;
+  }).join('');
+  
+  // Get transportation between destinations
+  const transportationHTML = transportation.length > 0 ? `
+    <h2 style="color: #1e3a8a; font-size: 24px; margin: 30px 0 20px 0;">🚗 Transportation</h2>
+    ${transportation.map(t => `
+      <div style="margin: 15px 0; padding: 15px; background: #f0f9ff; border-radius: 8px;">
+        <strong style="color: #1e3a8a;">${t.from_location_display || t.from_location} → ${t.to_location_display || t.to_location}</strong><br>
+        <span style="color: #666; font-size: 14px;">
+          ${t.type || 'Transport'} ${t.provider ? `via ${t.provider}` : ''}<br>
+          ${t.departure_datetime ? `Departs: ${new Date(t.departure_datetime).toLocaleString()}` : ''}
+          ${t.price ? ` | $${t.price}` : ''}
+        </span>
+      </div>
+    `).join('')}
+  ` : '';
 
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff;">
@@ -68,11 +138,13 @@ const generateTripItineraryHTML = (trip, destinations) => {
         ` : ''}
       </div>
 
-      <h2 style="color: #1e3a8a; font-size: 24px; margin: 30px 0 20px 0;">📍 Your Itinerary</h2>
+      <h2 style="color: #1e3a8a; font-size: 24px; margin: 30px 0 20px 0;">📅 Daily Plan</h2>
       ${destinationsHTML}
+      
+      ${transportationHTML}
 
       <div style="text-align: center; margin-top: 40px;">
-        <a href="${process.env.APP_URL || 'https://voyager-ai-travel-planner.web.app'}/TripDetails?id=${trip.id}" 
+        <a href="https://voyagerai-travel-planner.web.app/TripDetails?id=${trip.id}" 
            style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%); color: white; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">
           View Full Trip Details →
         </a>
@@ -80,14 +152,18 @@ const generateTripItineraryHTML = (trip, destinations) => {
 
       <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 12px;">
         <p>This email was sent by Voyager AI Travel Planner</p>
-        <p>You can manage your notification preferences in your profile settings</p>
+        <p style="margin-top: 15px; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px; color: #92400e;">
+          <strong>📌 Important:</strong> This is a free service. Your trip data will be kept for 90 days and deleted afterwards. 
+          Please save this email as it contains your complete daily schedule!
+        </p>
+        <p style="margin-top: 10px;">You can manage your notification preferences in your profile settings</p>
       </div>
     </div>
   `;
 };
 
 // Trigger on trip creation
-exports.onTripCreated = functions.firestore
+exports.onTripCreated = functions.region('europe-west1').firestore
   .document('trips/{tripId}')
   .onCreate(async (snap, context) => {
     functions.logger.info('🔔 onTripCreated trigger fired!', { tripId: context.params.tripId });
@@ -148,7 +224,7 @@ exports.onTripCreated = functions.firestore
       const destinations = destinationsSnapshot.docs.map(doc => doc.data());
       functions.logger.info(`Found ${destinations.length} destinations`);
 
-      const htmlContent = generateTripItineraryHTML(trip, destinations);
+      const htmlContent = await generateTripItineraryHTML(trip, destinations, tripId);
 
       // Write email document to 'mail' collection
       // Firebase Extension will pick it up and send it
@@ -156,6 +232,7 @@ exports.onTripCreated = functions.firestore
       
       await admin.firestore().collection('mail').add({
         to: email,
+        from: 'feedmyinfo@gmail.com', // Gmail address
         message: {
           subject: `🎉 Your trip "${trip.name}" has been created!`,
           html: htmlContent,
@@ -184,7 +261,7 @@ exports.onTripCreated = functions.firestore
   });
 
 // Trigger on trip update
-exports.onTripUpdated = functions.firestore
+exports.onTripUpdated = functions.region('europe-west1').firestore
   .document('trips/{tripId}')
   .onUpdate(async (change, context) => {
     const tripAfter = change.after.data();
@@ -226,11 +303,12 @@ exports.onTripUpdated = functions.firestore
       
       const destinations = destinationsSnapshot.docs.map(doc => doc.data());
 
-      const htmlContent = generateTripItineraryHTML(tripAfter, destinations);
+      const htmlContent = await generateTripItineraryHTML(tripAfter, destinations, tripId);
 
       // Write email document to 'mail' collection
       await admin.firestore().collection('mail').add({
         to: email,
+        from: 'feedmyinfo@gmail.com', // Gmail address
         message: {
           subject: `✏️ Your trip "${tripAfter.name}" has been updated`,
           html: htmlContent,
@@ -251,7 +329,7 @@ exports.onTripUpdated = functions.firestore
   });
 
 // Trigger on trip deletion
-exports.onTripDeleted = functions.firestore
+exports.onTripDeleted = functions.region('europe-west1').firestore
   .document('trips/{tripId}')
   .onDelete(async (snap, context) => {
     const trip = snap.data();
@@ -300,7 +378,7 @@ exports.onTripDeleted = functions.firestore
           </p>
 
           <div style="text-align: center; margin-top: 40px;">
-            <a href="${process.env.APP_URL || 'https://voyager-ai-travel-planner.web.app'}/Dashboard" 
+            <a href="https://voyagerai-travel-planner.web.app/Dashboard" 
                style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%); color: white; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">
               Go to Dashboard →
             </a>
@@ -313,13 +391,10 @@ exports.onTripDeleted = functions.firestore
         </div>
       `;
 
-      // Initialize Resend with API key
-      const resend = new Resend(getResendApiKey());
-
-      // Send email using Resend
       // Write email document to 'mail' collection
       await admin.firestore().collection('mail').add({
         to: email,
+        from: 'feedmyinfo@gmail.com', // Gmail address
         message: {
           subject: `🗑️ Trip "${trip.name}" has been deleted`,
           html: htmlContent,

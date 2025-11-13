@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { firebaseClient } from "@/api/firebaseClient";
 import TermsAgreementDialog from "@/components/TermsAgreementDialog";
+import { loadDestinations } from "@/services/destinationCache";
 import {
   Sidebar,
   SidebarContent,
@@ -50,6 +51,13 @@ export default function Layout({ children, currentPageName }) {
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
   const [showTermsDialog, setShowTermsDialog] = useState(false);
+
+  // Pre-load destinations cache on app start
+  useEffect(() => {
+    loadDestinations().catch(error => {
+      console.error('Failed to load destinations cache:', error);
+    });
+  }, []);
 
   // Check if user needs to accept terms
   const { data: userProfile } = useQuery({

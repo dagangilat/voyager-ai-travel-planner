@@ -9,7 +9,7 @@ function getPlacesApiKey() {
   return fromConfig || process.env.GOOGLE_PLACES_API_KEY;
 }
 
-exports.searchGooglePlaces = functions.https.onRequest(async (req, res) => {
+exports.searchGooglePlaces = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // Basic CORS support for browser clients
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');

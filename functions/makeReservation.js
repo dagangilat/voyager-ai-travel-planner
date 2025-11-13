@@ -1,7 +1,8 @@
 const functions = require('firebase-functions');
 const { db, admin } = require('./shared/admin');
+const { verifyAuthToken } = require('./shared/auth');
 
-exports.makeReservation = functions.https.onRequest(async (req, res) => {
+exports.makeReservation = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // CORS headers
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -23,7 +24,9 @@ exports.makeReservation = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    const userEmail = req.user?.email || 'unknown@example.com';
+    // Verify authentication
+    const decodedToken = await verifyAuthToken(req);
+    const userEmail = decodedToken.email;
 
     const tripDoc = await db.collection('trips').doc(trip_id).get();
     if (!tripDoc.exists) {
@@ -53,6 +56,10 @@ exports.makeReservation = functions.https.onRequest(async (req, res) => {
     res.status(200).json({ id: ref.id, ...doc.data() });
   } catch (error) {
     console.error('Error making reservation:', error);
-    res.status(500).json({ error: error.message });
+    if (error.message === 'No authorization header' || error.message === 'Invalid token') {
+      res.status(401).json({ error: 'Unauthorized' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   }
 });

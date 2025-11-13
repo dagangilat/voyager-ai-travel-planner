@@ -294,7 +294,7 @@ function generateSearchTerms(city, country, code) {
 }
 
 // Seed function
-exports.seedGlobalDestinations = functions.https.onRequest(async (req, res) => {
+exports.seedGlobalDestinations = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // CORS
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');

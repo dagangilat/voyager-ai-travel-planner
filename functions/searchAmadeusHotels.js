@@ -34,7 +34,7 @@ async function getAmadeusToken() {
   return data.access_token;
 }
 
-exports.searchAmadeusHotels = functions.https.onRequest(async (req, res) => {
+exports.searchAmadeusHotels = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // CORS
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');

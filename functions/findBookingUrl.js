@@ -1,6 +1,6 @@
 const functions = require('firebase-functions');
 
-exports.findBookingUrl = functions.https.onRequest(async (req, res) => {
+exports.findBookingUrl = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // CORS headers
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');

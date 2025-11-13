@@ -6,8 +6,8 @@ import { auth } from '@/config/firebase';
  */
 
 // Cloud Functions are deployed as HTTP endpoints, not callable functions
-const REGION = 'us-central1';
-const PROJECT_ID = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'voyager-ai-travel-planner';
+const REGION = 'europe-west1';
+const PROJECT_ID = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'voyagerai-travel-planner';
 const FUNCTIONS_BASE_URL = `https://${REGION}-${PROJECT_ID}.cloudfunctions.net`;
 
 // Get the current user's ID token for authentication

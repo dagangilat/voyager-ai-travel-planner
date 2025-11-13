@@ -1,265 +1,134 @@
-# Firebase Email Extension Setup
+# 📧 Email Extension Setup Guide
 
-## Overview
+## Problem
+Emails are being created in Firestore but stuck in PENDING state because the extension needs SMTP configuration.
 
-We're using the **Trigger Email from Firestore** extension to send emails. This is better than custom code because:
-- ✅ Handles delivery, retries, and errors automatically
-- ✅ Works with multiple email providers (SMTP, SendGrid, Mailgun, etc.)
-- ✅ No code changes needed for different providers
-- ✅ Built-in delivery tracking and logging
+## Solution: Configure with Resend SMTP
 
-## How It Works
+### Step 1: Get Resend SMTP Credentials
 
-1. Your Cloud Function writes an email document to the `mail` collection
-2. The extension watches this collection
-3. When a new document appears, it sends the email
-4. The extension updates the document with delivery status
+Resend provides SMTP compatibility. Your settings are:
 
-## Extension Configuration
-
-### 1. Install the Extension
-
-Already done! You installed it via Firebase Console.
-
-### 2. Configure Extension Settings
-
-During installation, you need to provide:
-
-#### Collection Name
-- **Value**: `mail`
-- This is where your code writes email documents
-
-#### SMTP Configuration
-
-Choose one of these options:
-
-##### Option A: Gmail SMTP (Easy for testing)
 ```
-SMTP Host: smtp.gmail.com
-SMTP Port: 587
-SMTP Username: your-email@gmail.com
-SMTP Password: [App Password - see below]
-Default FROM email: your-email@gmail.com
+SMTP Host: smtp.resend.com
+SMTP Port: 465 (SSL) or 587 (TLS)
+Username: resend
+Password: re_dmwxmqNr_C4415KERdB7ULAJXwQYmPDLh (your API key)
 ```
 
-**To get Gmail App Password:**
-1. Go to https://myaccount.google.com/security
-2. Enable 2-Step Verification
-3. Go to App Passwords
-4. Generate password for "Mail"
-5. Use this password (not your regular password)
+### Step 2: Configure the Extension
 
-##### Option B: SendGrid (Better for production)
-```
-SMTP Host: smtp.sendgrid.net
-SMTP Port: 587
-SMTP Username: apikey
-SMTP Password: [Your SendGrid API Key]
-Default FROM email: noreply@yourdomain.com
-```
+1. **Go to Firebase Console:**
+   https://console.firebase.google.com/project/voyagerai-travel-planner/extensions
 
-**To get SendGrid API Key:**
-1. Go to https://sendgrid.com
-2. Sign up (free tier: 100 emails/day)
-3. Create API Key in Settings > API Keys
-4. Use this as SMTP password
+2. **Click on "Trigger Email from Firestore"**
 
-##### Option C: Mailgun (Good alternative)
-```
-SMTP Host: smtp.mailgun.org
-SMTP Port: 587
-SMTP Username: [From Mailgun dashboard]
-SMTP Password: [From Mailgun dashboard]
-Default FROM email: noreply@yourdomain.com
-```
+3. **Click "Manage Extension"**
 
-### 3. Firestore Security Rules
+4. **Click "Reconfigure Extension"**
 
-Add this rule to allow the extension to update email documents:
+5. **Update these settings:**
 
-```javascript
-// In firestore.rules
-match /mail/{docId} {
-  // Allow extension to read and write
-  allow read, write: if request.auth != null;
-  
-  // Users can read their own email status
-  allow read: if request.auth.uid == resource.data.metadata.userId;
-}
-```
+   **SMTP Connection URI:**
+   ```
+   smtps://resend:re_dmwxmqNr_C4415KERdB7ULAJXwQYmPDLh@smtp.resend.com:465
+   ```
+   
+   **Default FROM address:**
+   ```
+   noreply@voyager-ai-travel-planner.web.app
+   ```
+   OR if you have a custom domain:
+   ```
+   noreply@yourdomain.com
+   ```
+   
+   **Mail collection:**
+   ```
+   mail
+   ```
+   
+   **Enable templates:** No (we're using HTML directly)
 
-## Code Structure
+6. **Click "Save"**
 
-### Email Document Format
+### Step 3: Verify Setup
 
-When creating an email, write this to Firestore:
+After configuration, the extension will automatically process pending emails!
 
-```javascript
-await admin.firestore().collection('mail').add({
-  to: 'user@example.com',
-  message: {
-    subject: 'Your Trip Has Been Created!',
-    html: '<h1>HTML content here</h1>',
-    text: 'Plain text version (optional)',
-  },
-  metadata: {
-    tripId: 'abc123',
-    userId: 'user123',
-    type: 'trip_created',
-  },
-});
-```
-
-### Extension Updates the Document
-
-After sending, the extension adds these fields:
-
-```javascript
-{
-  delivery: {
-    state: 'SUCCESS', // or 'ERROR', 'PENDING', 'PROCESSING'
-    startTime: Timestamp,
-    endTime: Timestamp,
-    error: 'Error message if failed',
-    attempts: 1,
-    info: {
-      messageId: 'smtp-message-id',
-      accepted: ['user@example.com'],
-      rejected: [],
-      response: 'SMTP response',
-    }
-  }
-}
-```
-
-## Monitoring
-
-### Check Email Delivery Status
-
-```javascript
-// In your code
-const emailDoc = await db.collection('mail').doc(emailId).get();
-const delivery = emailDoc.data().delivery;
-
-if (delivery.state === 'SUCCESS') {
-  console.log('Email sent!');
-} else if (delivery.state === 'ERROR') {
-  console.error('Email failed:', delivery.error);
-}
-```
-
-### View in Firebase Console
-
-1. Go to Firestore
-2. Open `mail` collection
-3. Each document shows delivery status
-
-### Check Extension Logs
-
-1. Go to Firebase Console > Functions
-2. Filter by extension function name
-3. See detailed logs of email sending
-
-## Testing
-
-### Test Email Sending
-
-After configuration, create a test trip:
-
+Check status:
 ```bash
-# The trigger will automatically create an email document
-# Check Firestore > mail collection
-# You should see a new document with delivery status
+node check-mail-simple.cjs
 ```
 
-### Verify Email Received
+Look for `Delivery State: SUCCESS` instead of `PENDING`.
 
-1. Create a new trip
-2. Wait 10-30 seconds
-3. Check your email inbox
-4. Check spam folder if not in inbox
+### Step 4: Test Email
+
+Create or update a trip and check your email!
+
+---
+
+## Alternative: Use Gmail SMTP
+
+If you prefer Gmail:
+
+1. **Enable 2-Step Verification** in your Google Account
+2. **Create an App Password:**
+   - Go to: https://myaccount.google.com/apppasswords
+   - Generate password for "Mail"
+
+3. **SMTP URI:**
+   ```
+   smtps://your-email@gmail.com:app-password-here@smtp.gmail.com:465
+   ```
+
+---
 
 ## Troubleshooting
 
-### Emails Not Sending
+### Emails still PENDING?
+- Check SMTP credentials are correct
+- Verify Resend API key is active
+- Check Firestore rules allow extension to read/write
 
-1. **Check Extension Configuration**
-   - Firebase Console > Extensions
-   - Verify SMTP settings are correct
+### Permission errors?
+- Extension needs Firestore write permissions
+- Check IAM permissions in GCP console
 
-2. **Check Firestore**
-   - Look at `mail` collection
-   - Check `delivery.state`
-   - If ERROR, check `delivery.error`
+### FROM address issues?
+With Resend, you need to verify your domain or use their test address.
 
-3. **Check Logs**
-   - Firebase Console > Functions
-   - Look for extension errors
-
-4. **Common Issues**
-   - Wrong SMTP credentials
-   - FROM email not verified (for some providers)
-   - Firewall blocking SMTP port
-   - Daily sending limit reached
-
-### Extension Not Triggering
-
-1. **Check Extension Status**
-   - Firebase Console > Extensions
-   - Should show "Active"
-
-2. **Check Collection Name**
-   - Extension watches `mail` collection
-   - Make sure code writes to correct collection
-
-3. **Check Firestore Rules**
-   - Extension needs read/write access
-   - Update security rules if needed
-
-## Migration from Resend
-
-We've updated the code to use the extension instead of direct Resend API calls:
-
-### Before (Direct API)
-```javascript
-const resend = new Resend(apiKey);
-await resend.emails.send({
-  from: 'sender@example.com',
-  to: 'user@example.com',
-  subject: 'Test',
-  html: '<p>Content</p>',
-});
+For testing, you can use:
+```
+onboarding@resend.dev
 ```
 
-### After (Extension)
+But for production, verify your domain at:
+https://resend.com/domains
+
+---
+
+## Quick Fix Commands
+
+### Check mail status:
+```bash
+node check-mail-simple.cjs
+```
+
+### View extension logs:
+```bash
+firebase functions:log --only ext-firestore-send-email-processqueue --project voyagerai-travel-planner
+```
+
+### Test the extension:
 ```javascript
 await admin.firestore().collection('mail').add({
-  to: 'user@example.com',
+  to: 'your-email@gmail.com',
   message: {
-    subject: 'Test',
-    html: '<p>Content</p>',
-  },
+    subject: 'Test Email',
+    html: '<h1>Hello from Voyager!</h1>',
+  }
 });
 ```
 
-## Advantages
-
-✅ **No API key management** - Configure once in extension
-✅ **Automatic retries** - Extension handles failures
-✅ **Provider independent** - Switch SMTP providers anytime
-✅ **Built-in logging** - See delivery status in Firestore
-✅ **No rate limiting code** - Extension handles it
-✅ **Easy testing** - Just write to Firestore, no API calls
-
-## Next Steps
-
-1. ✅ Configure extension SMTP settings
-2. ✅ Update Firestore security rules
-3. ✅ Deploy updated Cloud Functions
-4. ✅ Test by creating a trip
-5. ✅ Check email delivery
-
-## Support
-
-- Extension Docs: https://firebase.google.com/products/extensions/firestore-send-email
-- Extension Issues: https://github.com/firebase/extensions/issues

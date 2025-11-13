@@ -170,13 +170,13 @@ export default function Help() {
   const getColorClasses = (color) => {
     const colors = {
       blue: "bg-blue-100 text-blue-700 border-blue-200",
-      purple: "bg-purple-100 text-purple-700 border-purple-200",
-      green: "bg-green-100 text-green-700 border-green-200",
-      orange: "bg-orange-100 text-orange-700 border-orange-200",
-      red: "bg-red-100 text-red-700 border-red-200",
-      teal: "bg-teal-100 text-teal-700 border-teal-200",
-      yellow: "bg-yellow-100 text-yellow-700 border-yellow-200",
-      indigo: "bg-indigo-100 text-indigo-700 border-indigo-200",
+      purple: "bg-blue-100 text-blue-700 border-blue-200",  // Changed to blue
+      green: "bg-blue-100 text-blue-700 border-blue-200",   // Changed to blue
+      orange: "bg-sky-100 text-sky-700 border-sky-200",     // Light blue variant
+      red: "bg-blue-100 text-blue-700 border-blue-200",     // Changed to blue
+      teal: "bg-cyan-100 text-cyan-700 border-cyan-200",    // Blue-ish cyan
+      yellow: "bg-sky-100 text-sky-700 border-sky-200",     // Light blue variant
+      indigo: "bg-indigo-100 text-indigo-700 border-indigo-200", // Keep indigo (blue family)
     };
     return colors[color] || colors.blue;
   };

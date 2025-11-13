@@ -6,7 +6,7 @@ const geminiModelsData = require('./gemini-models.json');
  * Invoke LLM for AI trip generation
  * Supports Google Gemini API
  */
-exports.invokeLLM = functions.https.onRequest(async (req, res) => {
+exports.invokeLLM = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // CORS headers
   res.set('Access-Control-Allow-Origin', '*');
   

@@ -7,6 +7,7 @@ const axios = require('axios');
 exports.geocodeLocation = onRequest(
   {
     cors: true,
+    region: 'europe-west1',
   },
   async (req, res) => {
     try {

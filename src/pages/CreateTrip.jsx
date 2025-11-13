@@ -45,7 +45,6 @@ export default function CreateTrip() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [createdTripId, setCreatedTripId] = useState(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [showAILimitDialog, setShowAILimitDialog] = useState(false);
   const [showAIOptionsDialog, setShowAIOptionsDialog] = useState(false);
   const [aiOptionsCount, setAiOptionsCount] = useState({
     transportation: 2,
@@ -129,24 +128,14 @@ export default function CreateTrip() {
 
   const handleCreateTrip = async (withAI = false) => {
     console.log('handleCreateTrip called, withAI:', withAI);
-    console.log('Current user credits:', user?.credits);
     
     if (!tripName || !origin || !departureDate || destinations.length === 0) {
       console.log('Missing required fields');
       return;
     }
 
-    // Check AI credits first if using AI
+    // If using AI, show options dialog before proceeding
     if (withAI) {
-      const aiCredits = user?.credits?.ai_generations_remaining || 0;
-      console.log('AI credits available:', aiCredits);
-      
-      if (aiCredits === 0) {
-        setShowAILimitDialog(true);
-        return;
-      }
-      
-      // Show options dialog before proceeding
       setShowAIOptionsDialog(true);
       return;
     }
@@ -325,6 +314,9 @@ Provide realistic, varied options at different price points. Use actual airline 
           });
 
           console.log('AI Response received:', aiResult);
+          console.log('Transportation items:', aiResult.transportation?.length || 0);
+          console.log('Lodging items:', aiResult.lodging?.length || 0);
+          console.log('Experience items:', aiResult.experiences?.length || 0);
 
           // Create transportation items with progress
           const transportationItems = aiResult.transportation || [];
@@ -398,14 +390,7 @@ Provide realistic, varied options at different price points. Use actual airline 
 
           console.log('All items created successfully');
           
-          // Decrement credit
-          const currentCredits = user?.credits?.ai_generations_remaining || 1;
-          await firebaseClient.auth.updateMe({
-            credits: {
-              ...(user?.credits || {}),
-              ai_generations_remaining: currentCredits - 1
-            }
-          });
+          // Note: AI generation is unlimited - no credit deduction
           
           queryClient.invalidateQueries({ queryKey: ['user'] });
           console.log('AI generation complete!');
@@ -446,15 +431,12 @@ Provide realistic, varied options at different price points. Use actual airline 
 
   const canSubmit = tripName && origin && departureDate && destinations.length > 0 && 
     destinations.every(d => (d.location || d.location_name) && d.arrival_date && d.nights);
-
-  const aiCredits = user?.credits?.ai_generations_remaining || 0;
   
   console.log('Render state:', {
     canSubmit,
     isPending: createTripMutation.isPending,
     isGeneratingAI,
-    aiCredits,
-    buttonDisabled: !canSubmit || createTripMutation.isPending || isGeneratingAI || aiCredits === 0
+    buttonDisabled: !canSubmit || createTripMutation.isPending || isGeneratingAI
   });
 
   return (
@@ -469,7 +451,7 @@ Provide realistic, varied options at different price points. Use actual airline 
           <p className="text-gray-600">Create your itinerary step by step, then let AI fill in the details</p>
           <Badge className="mt-2 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 border-purple-200">
             <Sparkles className="w-3 h-3 mr-1" />
-            {aiCredits} AI generation{aiCredits !== 1 ? 's' : ''} available this month
+            Unlimited AI generations available
           </Badge>
         </motion.div>
 
@@ -766,7 +748,7 @@ Provide realistic, varied options at different price points. Use actual airline 
           </Button>
           <Button
             onClick={() => handleCreateTrip(true)}
-            disabled={!canSubmit || createTripMutation.isPending || isGeneratingAI || aiCredits === 0}
+            disabled={!canSubmit || createTripMutation.isPending || isGeneratingAI}
             className="px-8 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           >
             {isGeneratingAI ? (
@@ -902,26 +884,6 @@ Provide realistic, varied options at different price points. Use actual airline 
             >
               <Sparkles className="w-4 h-4 mr-2" />
               Generate with AI
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* AI Limit Dialog */}
-      <Dialog open={showAILimitDialog} onOpenChange={setShowAILimitDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center">No AI Generations Left</DialogTitle>
-            <DialogDescription className="text-center text-base pt-2">
-              You&apos;ve used your free AI trip generation for this month. Your limit will reset next month, or you can manually plan your trip.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              onClick={() => setShowAILimitDialog(false)}
-              className="w-full"
-            >
-              Got it
             </Button>
           </DialogFooter>
         </DialogContent>

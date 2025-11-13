@@ -1,37 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { firebaseClient } from "@/api/firebaseClient";
+import { searchDestinations, loadDestinations } from "@/services/destinationCache";
 import { MapPin, Loader2, Navigation } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-// Cache for search results (10 minute TTL)
-const searchCache = new Map();
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-
-// Pre-populate cache with common queries for instant response
-const POPULAR_QUERIES = {
-  'am': 'Amsterdam',
-  'ams': 'Amsterdam',
-  'amst': 'Amsterdam',
-  'lon': 'London',
-  'lond': 'London',
-  'par': 'Paris',
-  'pari': 'Paris',
-  'new': 'New York',
-  'tok': 'Tokyo',
-  'sing': 'Singapore',
-  'dub': 'Dubai',
-  'rom': 'Rome',
-  'barc': 'Barcelona',
-  'mad': 'Madrid',
-  'ber': 'Berlin',
-  'mun': 'Munich',
-  'vie': 'Vienna',
-  'pra': 'Prague',
-  'lis': 'Lisbon',
-  'ban': 'Bangkok',
-};
 
 export default function LocationSearchInput({ 
   value, 
@@ -85,54 +57,26 @@ export default function LocationSearchInput({
       return;
     }
 
-    // Check cache first
-    const cacheKey = `${query.toLowerCase()}_${includeAirportCodes}`;
-    const cached = searchCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log('Using cached results for:', query);
-      setSuggestions(cached.results);
-      setShowSuggestions(true);
-      setSelectedIndex(-1);
-      return;
-    }
-
     setIsSearching(true);
 
     try {
-      // Use new searchGlobalDestinations function that searches local DB first
-      const response = await firebaseClient.functions.invoke('searchGlobalDestinations', {
-        query,
-        type: includeAirportCodes ? 'airport' : null
-      });
-
-      console.log('Search response:', response);
-
-      // The response from the HTTP function is the data directly
-      const places = response.places || [];
+      // Ensure destinations are loaded
+      await loadDestinations();
+      
+      // Search client-side (instant!)
+      const results = searchDestinations(query, 10);
+      
+      console.log(`Found ${results.length} results instantly for:`, query);
       
       // Transform results to match expected format
-      const validLocations = places.map(place => ({
+      const validLocations = results.map(place => ({
         place_id: place.id,
         name: place.name,
         formatted_address: place.formatted_address,
-        code: place.id, // Use place_id as code for now
+        code: place.id,
         location: place.location,
-        source: place.source // 'local' or 'google'
+        source: place.source
       })).filter(loc => loc.name);
-
-      // Cache the results
-      searchCache.set(cacheKey, {
-        results: validLocations,
-        timestamp: Date.now()
-      });
-
-      // Clean old cache entries (keep only last 50)
-      if (searchCache.size > 50) {
-        const entries = Array.from(searchCache.entries());
-        entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
-        searchCache.clear();
-        entries.slice(0, 50).forEach(([key, value]) => searchCache.set(key, value));
-      }
 
       setSuggestions(validLocations);
       setShowSuggestions(true);
@@ -155,10 +99,10 @@ export default function LocationSearchInput({
       clearTimeout(searchTimeout.current);
     }
 
-    // Reduced debounce from 300ms to 150ms for faster response
+    // Even faster debounce - 50ms for instant feel
     searchTimeout.current = setTimeout(() => {
       searchLocations(query);
-    }, 150);
+    }, 50);
   };
 
   const handleSelectSuggestion = (suggestion) => {

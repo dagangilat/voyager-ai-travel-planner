@@ -1,7 +1,8 @@
 const functions = require('firebase-functions');
 const { db } = require('./shared/admin');
+const { verifyAuthToken } = require('./shared/auth');
 
-exports.getMyTrips = functions.https.onRequest(async (req, res) => {
+exports.getMyTrips = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // CORS headers
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -16,10 +17,11 @@ exports.getMyTrips = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  // Basic auth check (adjust to your auth middleware)
-  const userEmail = req.user?.email || 'unknown@example.com';
-
   try {
+    // Verify authentication
+    const decodedToken = await verifyAuthToken(req);
+    const userEmail = decodedToken.email;
+
     const ownedSnapshot = await db.collection('trips').where('created_by', '==', userEmail).get();
     const owned = ownedSnapshot.docs.map((d) => ({ id: d.id, ...d.data(), access: 'owner' }));
 
@@ -46,6 +48,10 @@ exports.getMyTrips = functions.https.onRequest(async (req, res) => {
     res.status(200).json({ trips });
   } catch (error) {
     console.error('Error getting trips:', error);
-    res.status(500).json({ error: error.message });
+    if (error.message === 'No authorization header' || error.message === 'Invalid token') {
+      res.status(401).json({ error: 'Unauthorized' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   }
 });

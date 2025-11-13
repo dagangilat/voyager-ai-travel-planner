@@ -563,9 +563,15 @@ Make realistic suggestions based on actual available services. Consider travel t
                 required: ["name", "category", "location", "date"]
               }
             }
-          }
+          },
+          required: ["transportation", "lodging", "experiences"]
         }
       });
+
+      console.log('AI Response received (TripDetails):', result);
+      console.log('Transportation items:', result.transportation?.length || 0);
+      console.log('Lodging items:', result.lodging?.length || 0);
+      console.log('Experience items:', result.experiences?.length || 0);
 
       // Create transportation items with progress
       const transportationItems = result.transportation || [];
@@ -786,23 +792,11 @@ Make realistic suggestions based on actual available services. Consider travel t
       return;
     }
 
-    // Check AI credits (no Pro status check)
-    const aiCredits = user?.credits?.ai_generations_remaining || 0;
-    
-    if (aiCredits === 0) {
-      setWarningDialogTitle('No AI Generations Left');
-      setWarningDialogDescription("You've used your free AI trip generation for this month. Your limit will reset next month.");
-      setShowWarningDialog(true);
-      return;
-    }
-
     // Show options dialog
     setShowAIOptionsDialog(true);
   };
 
   const executeAIGeneration = async () => {
-
-    const aiCredits = user?.credits?.ai_generations_remaining || 0;
 
     const hasExistingData = transportation.length > 0 || lodging.length > 0 || experiences.length > 0;
     if (hasExistingData) {
@@ -815,13 +809,7 @@ Make realistic suggestions based on actual available services. Consider travel t
         try {
           await generateAITripMutation.mutateAsync();
           
-          // Decrement AI credit
-          await firebaseClient.auth.updateMe({
-            credits: {
-              ...(user.credits || {}),
-              ai_generations_remaining: aiCredits - 1
-            }
-          });
+          // No credit deduction - unlimited AI generations
           
           queryClient.invalidateQueries({ queryKey: ['user'] });
           setGenerationSuccess(true);
@@ -842,13 +830,7 @@ Make realistic suggestions based on actual available services. Consider travel t
     try {
       await generateAITripMutation.mutateAsync();
       
-      // Decrement AI credit
-      await firebaseClient.auth.updateMe({
-        credits: {
-          ...(user.credits || {}),
-          ai_generations_remaining: aiCredits - 1
-        }
-      });
+      // No credit deduction - unlimited AI generations
       
       queryClient.invalidateQueries({ queryKey: ['user'] });
       setGenerationSuccess(true);

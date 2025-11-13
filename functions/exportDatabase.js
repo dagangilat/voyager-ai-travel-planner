@@ -1,7 +1,7 @@
 const functions = require('firebase-functions');
 const { db } = require('./shared/admin');
 
-exports.exportDatabase = functions.https.onRequest(async (req, res) => {
+exports.exportDatabase = functions.region('europe-west1').https.onRequest(async (req, res) => {
     // This function should only be accessible to admin users
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

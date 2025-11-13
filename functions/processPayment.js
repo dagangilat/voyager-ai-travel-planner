@@ -12,7 +12,7 @@ const db = admin.firestore();
  * Process payment and add credits to user account
  * This is a simulated payment for demo purposes
  */
-exports.processPayment = functions.https.onRequest(async (req, res) => {
+exports.processPayment = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // CORS headers
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');

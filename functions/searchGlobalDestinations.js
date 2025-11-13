@@ -190,7 +190,7 @@ async function searchGooglePlaces(query, type) {
 }
 
 // Main search function
-exports.searchGlobalDestinations = functions.https.onRequest(async (req, res) => {
+exports.searchGlobalDestinations = functions.region('europe-west1').https.onRequest(async (req, res) => {
   // Set CORS headers
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
