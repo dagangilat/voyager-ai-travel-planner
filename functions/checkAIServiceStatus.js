@@ -7,12 +7,16 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
  */
 exports.checkAIServiceStatus = functions.region('europe-west1').https.onCall(async (data, context) => {
   try {
+    functions.logger.info('checkAIServiceStatus called', { data, hasContext: !!context });
+    
     // Get all API keys
     const apiKeys = [
       process.env.GEMINI_API_KEY,
       process.env.GEMINI_API_KEY_1,
       process.env.GEMINI_API_KEY_2,
     ].filter(Boolean);
+    
+    functions.logger.info('Found API keys:', { count: apiKeys.length });
 
     if (apiKeys.length === 0) {
       return {
@@ -35,7 +39,7 @@ exports.checkAIServiceStatus = functions.region('europe-west1').https.onCall(asy
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ 
-          model: 'gemini-2.5-flash',
+          model: 'gemini-1.5-flash',
           generationConfig: {
             temperature: 0.1,
             maxOutputTokens: 10
@@ -58,7 +62,7 @@ exports.checkAIServiceStatus = functions.region('europe-west1').https.onCall(asy
           keyStatuses.push({
             key: keyPreview,
             status: 'working',
-            model: 'gemini-2.5-flash'
+            model: 'gemini-1.5-flash'
           });
         } else {
           keyStatuses.push({
