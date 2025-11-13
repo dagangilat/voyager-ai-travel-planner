@@ -1,28 +1,20 @@
 const functions = require('firebase-functions');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const geminiModelsData = require('./gemini-models.json');
+const cors = require('cors')({ origin: true });
 
 /**
  * Invoke LLM for AI trip generation
  * Supports Google Gemini API
  */
 exports.invokeLLM = functions.region('europe-west1').https.onRequest(async (req, res) => {
-  // CORS headers
-  res.set('Access-Control-Allow-Origin', '*');
-  
-  if (req.method === 'OPTIONS') {
-    res.set('Access-Control-Allow-Methods', 'POST');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.set('Access-Control-Max-Age', '3600');
-    return res.status(204).send('');
-  }
+  return cors(req, res, async () => {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const { prompt, response_json_schema, add_context_from_internet } = req.body;
+    try {
+      const { prompt, response_json_schema, add_context_from_internet } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
@@ -178,4 +170,5 @@ exports.invokeLLM = functions.region('europe-west1').https.onRequest(async (req,
       details: error.status === 429 ? 'Rate limit exceeded. Free tier has strict limits. Consider upgrading your Gemini API key.' : undefined
     });
   }
+  });
 });
