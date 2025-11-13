@@ -39,13 +39,20 @@ const generateTripItineraryHTML = async (trip, destinations, tripId) => {
   const transportation = transportationSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   const experiences = experiencesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   
+  functions.logger.info(`Email generation - Found ${lodging.length} lodging, ${transportation.length} transportation, ${experiences.length} experiences`);
+  
   // Build daily plan by destination
   const destinationsHTML = destinations.map((dest, idx) => {
+    // More flexible matching - try multiple fields
     const destLodging = lodging.filter(l => 
-      l.location === dest.location || l.location_display === dest.location_name
+      l.location === dest.location || 
+      l.location_display === dest.location_name ||
+      l.destination_id === dest.id
     );
     const destExperiences = experiences.filter(e => 
-      e.location === dest.location || e.location_display === dest.location_name
+      e.location === dest.location || 
+      e.location_display === dest.location_name ||
+      e.destination_id === dest.id
     );
     
     const lodgingHTML = destLodging.length > 0 ? `
@@ -142,6 +149,35 @@ const generateTripItineraryHTML = async (trip, destinations, tripId) => {
       ${destinationsHTML}
       
       ${transportationHTML}
+      
+      ${lodging.length > 0 ? `
+        <h2 style="color: #1e3a8a; font-size: 24px; margin: 30px 0 20px 0;">🏨 All Lodging</h2>
+        ${lodging.map(l => `
+          <div style="margin: 15px 0; padding: 15px; background: #f0f9ff; border-radius: 8px;">
+            <strong style="color: #1e3a8a;">${l.name}</strong> (${l.type || 'Hotel'})<br>
+            <span style="color: #666; font-size: 14px;">
+              📍 ${l.location_display || l.location || 'Location TBD'}<br>
+              Check-in: ${formatDate(l.check_in_date)} | Check-out: ${formatDate(l.check_out_date)}
+              ${l.price_per_night ? ` | $${l.price_per_night}/night` : ''}
+              ${l.total_price ? ` | Total: $${l.total_price}` : ''}
+            </span>
+          </div>
+        `).join('')}
+      ` : ''}
+      
+      ${experiences.length > 0 ? `
+        <h2 style="color: #1e3a8a; font-size: 24px; margin: 30px 0 20px 0;">🎯 All Experiences & Activities</h2>
+        ${experiences.map(e => `
+          <div style="margin: 15px 0; padding: 15px; background: #f0f9ff; border-radius: 8px;">
+            <strong style="color: #1e3a8a;">${e.name}</strong> (${e.category || 'Activity'})<br>
+            <span style="color: #666; font-size: 14px;">
+              📍 ${e.location_display || e.location || 'Location TBD'}<br>
+              ${e.date ? formatDate(e.date) : ''} ${e.duration ? `| ${e.duration}` : ''}
+              ${e.price ? ` | $${e.price}` : ''}
+            </span>
+          </div>
+        `).join('')}
+      ` : ''}
 
       <div style="text-align: center; margin-top: 40px;">
         <a href="https://voyagerai-travel-planner.web.app/TripDetails?id=${trip.id}" 
